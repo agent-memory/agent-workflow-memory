@@ -8,12 +8,12 @@ import json
 def main() -> None:
     with open("test.raw.json", "r") as f:
         raw = f.read()
-    raw = raw.replace("__GITLAB__", os.environ.get("GITLAB"))
-    raw = raw.replace("__REDDIT__", os.environ.get("REDDIT"))
-    raw = raw.replace("__SHOPPING__", os.environ.get("SHOPPING"))
-    raw = raw.replace("__SHOPPING_ADMIN__", os.environ.get("SHOPPING_ADMIN"))
-    raw = raw.replace("__WIKIPEDIA__", os.environ.get("WIKIPEDIA"))
-    raw = raw.replace("__MAP__", os.environ.get("MAP"))
+    raw = raw.replace("__GITLAB__", os.environ.get("WA_GITLAB"))
+    raw = raw.replace("__REDDIT__", os.environ.get("WA_REDDIT"))
+    raw = raw.replace("__SHOPPING__", os.environ.get("WA_SHOPPING"))
+    raw = raw.replace("__SHOPPING_ADMIN__", os.environ.get("WA_SHOPPING_ADMIN"))
+    raw = raw.replace("__WIKIPEDIA__", os.environ.get("WA_WIKIPEDIA"))
+    raw = raw.replace("__MAP__", os.environ.get("WA_MAP"))
     with open("test.json", "w") as f:
         f.write(raw)
     # split to multiple files
