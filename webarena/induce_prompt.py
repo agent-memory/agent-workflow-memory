@@ -4,9 +4,9 @@ import random
 import argparse
 
 import openai
-openai.api_key = os.environ["OPENAI_API_KEY"]
 from openai import OpenAI
-client = OpenAI()
+from huggingface_hub import InferenceClient
+
 
 # %% load examples
 def load_blocks(path: str) -> list[list[str]]:
@@ -19,6 +19,8 @@ def load_blocks(path: str) -> list[list[str]]:
         else:
             if line.strip():
                 block.append(line.strip())
+    if len(blocks) > 0 and 'Python version' in blocks[0][0]:
+        blocks = blocks[1:] # remove conda env output
     assert len(blocks) % 2 == 0
     return blocks
 
@@ -83,17 +85,26 @@ def format_examples(examples: list[dict]) -> str:
         formatted_examples.append(f"Query: {ex['query']}\nActions:\n{trajectory}")
     return '\n\n'.join(["## Concrete Examples"] + formatted_examples + ["## Summary Workflows"])
 
-def llm_generate(examples: list[dict], args, verbose: bool = False):
+def llm_generate(llm_client, examples: list[dict], args, verbose: bool = False):
     """Call gpt model to generate workflows."""
     prompt = format_examples(examples)
     prompt = '\n\n'.join([args.INSTRUCTION, args.ONE_SHOT, prompt])
     if verbose: print("Prompt:\n", prompt, '\n\n')
-    response = client.chat.completions.create(
-        model=args.model,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=1.0,
-        max_tokens=2048,
-    )
+
+    if "gpt" in args.model:
+        response = llm_client.chat.completions.create(
+            model=args.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=1.0,
+            max_tokens=2048,
+        )
+    else:
+        response = llm_client.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=1.0,
+                max_tokens=2048,
+        )
+
     response = response.choices[0].message.content
     if verbose: print(response)
     return response
@@ -147,9 +158,15 @@ def main():
         template_dict[template_id].append(wdict)
     selected_examples = random_group_sample(template_dict, args.num_samples)
     print(f"#{len(selected_examples)} result dirs after template dedup..")
+
+    if "gpt" in args.model:
+        openai.api_key = os.environ["OPENAI_API_KEY"]
+        llm_client = OpenAI()
+    else:
+        llm_client = InferenceClient(args.model, token = os.environ.get('HF_TOKEN'))
     
     # prompt model to induce workflows
-    workflows = llm_generate(selected_examples, args, True)
+    workflows = llm_generate(llm_client, selected_examples, args, True)
     workflows += "\n\nclick('id') # input string id value for all actions\n\nselect_option('id', 'value') # for dropdown menu"
 
     if args.output_path is None:
@@ -171,7 +188,8 @@ if __name__ == "__main__":
                         choices=["gt", "autoeval"],
                         help="'gt': only use examples with gold reward, 'autoeval': use examples with autoeval reward.")
     parser.add_argument("--model", type=str, default="gpt-4o",
-                        choices=["gpt-3.5", "gpt-4", "gpt-4o"])
+                        choices=["gpt-3.5", "gpt-4", "gpt-4o",
+                                 "meta-llama/Meta-Llama-3.1-70B-Instruct","meta-llama/Meta-Llama-3.1-8B-Instruct"])
     parser.add_argument("--num_samples", type=int, default=1, help="Max number of samples to input per template.")
     args = parser.parse_args()
 

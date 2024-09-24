@@ -2,6 +2,7 @@ import os
 import json
 import argparse
 from subprocess import Popen
+import time
 
 def main():
     # collect examples
@@ -16,34 +17,42 @@ def main():
 
     if args.end_index == None: args.end_index = len(task_ids)
     for tid in task_ids[args.start_index: args.end_index]:
+        print(f"Started tid:{tid}", flush=True)
+        start_time = time.time()
         # step 1: run inference
         process = Popen([
             "python", "run.py", 
             "--task", f"webarena.{tid}",
-            "--workflow_path", f"workflow/{args.website}.txt"
+            "--workflow_path", f"workflow/{args.website}.txt",
+            "--model_name", f"{args.model_name}"
         ])
         process.wait()
 
         # step 2: run evaluation
         process = Popen([
             "python", "-m", "autoeval.evaluate_trajectory",
-            "--result_dir", f"results/webarena.{tid}"
+            "--result_dir", f"results/webarena.{tid}",
+            "--model", f"{args.model_name}"
         ])
         process.wait()
 
         # step 3: update workflow
         process = Popen([
-            "python", "workflow_induction.py",
+            "python", "induce_rule.py",
             "--result_dir", "results",
             "--output_path", f"workflow/{args.website}.txt",
+            "--model", f"{args.model_name}"
         ])
         process.wait()
+
+        print(f"Completed tid:{tid}, time taken:{time.time() - start_time}", flush=True)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--website", type=str, required=True,
                         choices=["shopping", "shopping_admin", "gitlab", "reddit", "map"])
+    parser.add_argument("--model_name", type=str, default="openai/gpt-4o")
     parser.add_argument("--start_index", type=int, default=0)
     parser.add_argument("--end_index", type=int, default=None)
     args = parser.parse_args()

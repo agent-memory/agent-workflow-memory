@@ -64,7 +64,7 @@ class ChatModelArgs:
     max_input_tokens: int = None
     hf_hosted: bool = False
     info: dict = None
-    n_retry_server: int = 4,
+    n_retry_server: int = 4
     eai_token: str = None
 
     def __post_init__(self):
@@ -88,8 +88,8 @@ class ChatModelArgs:
                 max_total_tokens=self.max_total_tokens,
                 max_input_tokens=self.max_input_tokens,
                 model_url=self.model_url,
-                eai_token=self.eai_token,
                 n_retry_server=self.n_retry_server,
+                eai_token=self.eai_token,
             )
 
     @property
@@ -165,7 +165,7 @@ class HuggingFaceChatModel(SimpleChatModel):
         """
         super().__init__()
 
-        self.n_retry_server = n_retry_server[0] # As it is a pydantic field
+        self.n_retry_server = n_retry_server
 
         if max_new_tokens is None:
             max_new_tokens = max_total_tokens - max_input_tokens
@@ -194,6 +194,7 @@ class HuggingFaceChatModel(SimpleChatModel):
         if model_url is not None:
             logging.info("Loading the LLM from a URL")
             client = InferenceClient(model=model_url, token=eai_token)
+            logging.info(f"Loading the LLM from {model_url}")
             self.llm = partial(
                 client.text_generation, temperature=temperature, max_new_tokens=max_new_tokens
             )

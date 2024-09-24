@@ -16,6 +16,8 @@ def load_blocks(path: str) -> list[list[str]]:
         else:
             if line.strip():
                 block.append(line.strip())
+    if len(blocks) > 0 and 'Python version' in blocks[0][0]:
+        blocks = blocks[1:] # remove conda env output
     assert len(blocks) % 2 == 0
     return blocks
 
@@ -137,7 +139,8 @@ def main():
         log_save_path=log_save_path, 
         model=args.model, eval_version=args.prompt,
     )
-    output_eval_path = os.path.join(args.result_dir, f"{args.model}_autoeval.json")
+    output_model_name = args.model.replace("/","_")
+    output_eval_path = os.path.join(args.result_dir, f"{output_model_name}_autoeval.json")
     json.dump(eval_info, open(output_eval_path, 'w'))
 
 
@@ -147,7 +150,8 @@ if __name__ == "__main__":
                         help="Path to the result directory, e.g., 'webarena.0'.")
     # autoeval
     parser.add_argument("--model", type=str, default="gpt-3.5-turbo",
-                        choices=["gpt-3.5", "gpt-4", "gpt-4o"])
+                        choices=["gpt-3.5", "gpt-4", "gpt-4o","llama3.1-8b",
+                                 "meta-llama/Meta-Llama-3.1-70B-Instruct","meta-llama/Meta-Llama-3.1-8B-Instruct"])
     parser.add_argument("--prompt", type=str, default="text",
                         choices=["text", "vision"])
 

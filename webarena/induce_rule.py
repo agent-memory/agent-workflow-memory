@@ -15,6 +15,8 @@ def load_blocks(path: str) -> list[list[str]]:
             if line.strip():
                 block.append(line.strip())
     assert len(blocks) % 2 == 0
+    if len(blocks) > 0 and 'Python version' in blocks[0][0]:
+        blocks = blocks[1:] # remove conda env output
     return blocks
 
 def remove_invalid_steps(actions: list[str]) -> list[str]:
@@ -175,8 +177,9 @@ if __name__ == "__main__":
     parser.add_argument("--criteria", type=str, default="autoeval", 
                         choices=["gt", "autoeval"],
                         help="'gt': only use examples with gold reward, 'autoeval': use examples with autoeval reward.")
-    parser.add_argument("--model", type=str, default="gpt-3.5-turbo",
-                        choices=["gpt-3.5", "gpt-4", "gpt-4o"])
+    parser.add_argument("--model", type=str, default="gpt-4o",
+                        choices=["gpt-3.5", "gpt-4", "gpt-4o",
+                                 "meta-llama/Meta-Llama-3.1-70B-Instruct","meta-llama/Meta-Llama-3.1-8B-Instruct"])
     parser.add_argument("--auto", action="store_true", help="w/o manual workflow inspections.")
     args = parser.parse_args()
 
