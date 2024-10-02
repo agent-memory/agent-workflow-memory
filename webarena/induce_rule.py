@@ -14,9 +14,9 @@ def load_blocks(path: str) -> list[list[str]]:
         else:
             if line.strip():
                 block.append(line.strip())
-    assert len(blocks) % 2 == 0
     if len(blocks) > 0 and 'Python version' in blocks[0][0]:
         blocks = blocks[1:] # remove conda env output
+    assert len(blocks) % 2 == 0
     return blocks
 
 def remove_invalid_steps(actions: list[str]) -> list[str]:
