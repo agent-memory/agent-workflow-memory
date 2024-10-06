@@ -101,8 +101,11 @@ def main():
                 record_path = os.path.join(res_dir, f, f"{args.model}_autoeval.json")
                 if not os.path.exists(record_path): continue
                 record = json.load(open(record_path))
-                if record[0]["rm"]:
-                    file_dirs.append(os.path.join(res_dir, f))
+                try:
+                    if record[0]["rm"]:
+                        file_dirs.append(os.path.join(res_dir, f))
+                except:
+                    print(f"Autoeval format issue: tid {f}")
     else:
         raise ValueError(f"Invalid criteria: {args.criteria}.")
     

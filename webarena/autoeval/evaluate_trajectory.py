@@ -83,13 +83,13 @@ def process_sample(
     except Exception as e:
         print(f"Error on {idx}, {e}")
         print(traceback.format_exc())
-        return {
+        return [{
             "idx": idx,
             "gt": traj_info["eval"],
             "rm": None,
             "thoughts": None, 
             "uid": traj_info["traj_name"],
-        }
+        }]
 
 
 def main():
