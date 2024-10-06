@@ -170,6 +170,21 @@ def main():
     with open(args.output_path, 'w') as fw:
         fw.write('\n\n\n'.join(["## Concrete Examples"] + manual_workflows))
 
+    if not os.path.exists('step_wise_workflows'):
+        os.makedirs('step_wise_workflows')
+        print(f"Directory 'step_wise_workflows' created.")
+
+    step_wise_workflow_dir = os.listdir(f'step_wise_workflows')
+    if len(step_wise_workflow_dir) == 0:
+        step_idx = 0
+    else:
+        step_ids = [int(workflow_dir.split('workflow_step_')[-1].split('.txt')[0]) for workflow_dir in step_wise_workflow_dir]
+        last_idx = sorted(step_ids)[-1]
+        step_idx = last_idx + 1
+
+    with open(f'step_wise_workflows/workflow_step_{step_idx}.txt','w') as fw:
+        fw.write('\n\n\n'.join(["## Concrete Examples"] + manual_workflows))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
