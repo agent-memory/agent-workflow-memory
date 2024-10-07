@@ -26,25 +26,16 @@ class LM_Client:
             {"role": "user", "content": "hi"},
         ])
         """
-        if "gpt" in self.model_name:
-            chat_completion = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                response_format={"type": "json_object"} if json_mode else None,
-                temperature=0,
-            )
-            response = chat_completion.choices[0].message.content
-            return response, chat_completion
-        else:
-            # Assuming HF Inf models by default
-            print(f"Autoeval called by {self.model_name}")
-            chat_completion = self.client.chat_completion(
-                messages=messages,
-                response_format={"type": "json_object"} if json_mode else None,
-                temperature=0,
-            )
-            response = chat_completion.choices[0].message.content
-            return response, chat_completion
+        # HFInfClient has an alias to match OpenAI API format
+        chat_completion = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=messages,
+            response_format={"type": "json_object"} if json_mode else None,
+            temperature=0,
+            max_tokens=8_000,
+        )
+        response = chat_completion.choices[0].message.content
+        return response, chat_completion
 
     def one_step_chat(
         self, text, system_msg: str = None, json_mode=False
