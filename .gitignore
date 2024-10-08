@@ -1,5 +1,7 @@
 **/__pycache__/**
 **/results*/**
 webarena/config_files/**
+webarena/step_wise_workflows/**
+webarena/workflow/**
 webarena/autoeval/log
 **/.DS_Store
