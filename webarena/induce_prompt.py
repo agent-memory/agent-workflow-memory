@@ -118,7 +118,8 @@ def main():
         file_dirs = []
         for res_dir in args.result_dir:
             for f in os.listdir(res_dir):
-                record_path = os.path.join(res_dir, f, f"{args.model}_autoeval.json")
+                output_model_name = args.model.replace("/","_")
+                record_path = os.path.join(res_dir, f, f"{output_model_name}_autoeval.json")
                 if not os.path.exists(record_path): continue
                 record = json.load(open(record_path))
                 if record[0]["rm"]:
