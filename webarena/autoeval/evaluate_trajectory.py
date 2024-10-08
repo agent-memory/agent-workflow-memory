@@ -45,12 +45,20 @@ def remove_invalid_steps(actions: list[str]) -> list[str]:
     for a in actions:
         if "click(" in a:
             arg = a[a.index("(")+1: a.index(")")]
-            if type(eval(arg)) == str:
-                valid_actions.append(a)
+            try:
+                if type(eval(arg)) == str:
+                    valid_actions.append(a)
+            except Exception as e:
+                print(f"Error in remove_invalid_steps: {e}")
+                continue
         elif "fill(" in a:
             arg = a[a.index("(")+1: a.index(",")].strip()
-            if type(eval(arg)) == str:
-                valid_actions.append(a)
+            try:
+                if type(eval(arg)) == str:
+                    valid_actions.append(a)
+            except Exception as e:
+                print(f"Error in remove_invalid_steps: {e}")
+                continue
         else:
             valid_actions.append(a)
     return valid_actions
@@ -67,8 +75,11 @@ def extract_think_and_action(path: str) -> tuple[list[str], list[str]]:
         action_list.append(actions)
         # think
         b = blocks[i-1]
-        idx = b[-1].index("browsergym.experiments.loop - INFO -")
-        think_list.append(b[-1][idx+36: ].strip())
+        # Handling multiple lines of thoughts and stripping off the prefix in first line
+        idx = b[0].index("browsergym.experiments.loop - INFO -")
+        b[0] = b[0][idx+36: ].strip()
+        thought = ' '.join(b).strip()
+        think_list.append(thought)
     
     assert len(think_list) == len(action_list)
     
