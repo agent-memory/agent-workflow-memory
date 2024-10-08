@@ -91,19 +91,13 @@ def llm_generate(llm_client, examples: list[dict], args, verbose: bool = False):
     prompt = '\n\n'.join([args.INSTRUCTION, args.ONE_SHOT, prompt])
     if verbose: print("Prompt:\n", prompt, '\n\n')
 
-    if "gpt" in args.model:
-        response = llm_client.chat.completions.create(
-            model=args.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=1.0,
-            max_tokens=2048,
-        )
-    else:
-        response = llm_client.chat_completion(
-                messages=[{"role": "user", "content": prompt}],
-                temperature=1.0,
-                max_tokens=2048,
-        )
+    # HFInfClient Alias for OpenAI format
+    response = llm_client.chat.completions.create(
+        model=args.model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=1.0,
+        max_tokens=2048,
+    )
 
     response = response.choices[0].message.content
     if verbose: print(response)
@@ -189,7 +183,7 @@ if __name__ == "__main__":
                         help="'gt': only use examples with gold reward, 'autoeval': use examples with autoeval reward.")
     parser.add_argument("--model", type=str, default="gpt-4o",
                         choices=["gpt-3.5", "gpt-4", "gpt-4o",
-                                 "meta-llama/Meta-Llama-3.1-70B-Instruct","meta-llama/Meta-Llama-3.1-8B-Instruct"])
+                                 "meta-llama/Llama-3.1-70B-Instruct","meta-llama/Llama-3.1-8B-Instruct"])
     parser.add_argument("--num_samples", type=int, default=1, help="Max number of samples to input per template.")
     args = parser.parse_args()
 

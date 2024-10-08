@@ -15,6 +15,8 @@ def main():
     config_flags = [config["sites"][0] == args.website for config in config_list]
     task_ids = [config["task_id"] for config, flag in zip(config_list, config_flags) if flag]
 
+    induction_path = "induce_rule.py" if args.induce_strategy == "rule" else "induce_prompt.py"
+
     if args.end_index == None: args.end_index = len(task_ids)
     for tid in task_ids[args.start_index: args.end_index]:
         print(f"Started tid:{tid}", flush=True)
@@ -38,7 +40,7 @@ def main():
 
         # step 3: update workflow
         process = Popen([
-            "python", "induce_rule.py",
+            "python", induction_path,
             "--result_dir", "results",
             "--output_path", f"workflow/{args.website}.txt",
             "--model", f"{args.model_name}"
@@ -55,6 +57,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_name", type=str, default="openai/gpt-4o")
     parser.add_argument("--start_index", type=int, default=0)
     parser.add_argument("--end_index", type=int, default=None)
+    parser.add_argument("--induce_strategy", type=str, default="rule", choices=["rule", "neural"])
     args = parser.parse_args()
 
     main()
