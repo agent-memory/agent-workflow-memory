@@ -26,7 +26,8 @@ def main():
             "python", "run.py", 
             "--task", f"webarena.{tid}",
             "--workflow_path", f"workflow/{args.website}.txt",
-            "--model_name", f"{args.model_name}"
+            "--model_name", f"{args.model_name}",
+            "--headless", "True" if args.headless else "False",
         ])
         process.wait()
 
@@ -43,7 +44,10 @@ def main():
             "python", induction_path,
             "--result_dir", "results",
             "--output_path", f"workflow/{args.website}.txt",
-            "--model", f"{args.model_name}"
+            "--model", f"{args.model_name}",
+            "--tid", f"{tid}",
+            "--prefix_workflow_path", args.prefix_workflow_path, 
+            "--auto" if args.auto and args.induce_strategy == 'rule' else ""
         ])
         process.wait()
 
@@ -58,6 +62,9 @@ if __name__ == "__main__":
     parser.add_argument("--start_index", type=int, default=0)
     parser.add_argument("--end_index", type=int, default=None)
     parser.add_argument("--induce_strategy", type=str, default="rule", choices=["rule", "neural"])
+    parser.add_argument("--prefix_workflow_path", type=str, default=None)
+    parser.add_argument("--auto", action="store_true", default=False)
+    parser.add_argument("--headless", action="store_true", default=False)
     args = parser.parse_args()
 
     main()
