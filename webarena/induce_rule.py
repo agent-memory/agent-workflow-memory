@@ -2,6 +2,7 @@ import os
 import json
 import random
 import argparse
+import datetime
 
 
 def load_blocks(path: str) -> list[list[str]]:
@@ -112,6 +113,12 @@ def random_group_sample(d: dict, n) -> list:
 
 def main():
     # collect result directories, e.g., ["results/webarena.0", ...]
+    if args.prefix_worflow_path:
+        with open(args.prefix_worflow_path, 'r') as fr:
+            prefix_worflow = fr.read()
+    else:
+        prefix_worflow = "## Concrete Examples"
+
     args.result_dir = args.result_dir.split()
     if args.criteria == "gt":
         file_dirs = [
@@ -195,22 +202,29 @@ def main():
         print(f"[Warning] no output path specified, using '{args.output_path}' by default")
         
     with open(args.output_path, 'w') as fw:
-        fw.write('\n\n\n'.join(["## Concrete Examples"] + manual_workflows))
+        fw.write('\n\n\n'.join([prefix_worflow] + manual_workflows))
 
     if not os.path.exists('step_wise_workflows'):
         os.makedirs('step_wise_workflows')
         print(f"Directory 'step_wise_workflows' created.")
 
-    step_wise_workflow_dir = os.listdir(f'step_wise_workflows')
+    exp_folder = f'step_wise_workflows/rule_{args.model.replace("/", "_")}/'
+    if not os.path.exists(exp_folder):
+        os.makedirs(exp_folder)
+        print(f"Directory {exp_folder} created.")
+
+    step_wise_workflow_dir = os.listdir(exp_folder)
     if len(step_wise_workflow_dir) == 0:
         step_idx = 0
     else:
-        step_ids = [int(workflow_dir.split('workflow_step_')[-1].split('.txt')[0]) for workflow_dir in step_wise_workflow_dir]
+        step_ids = [int(workflow_dir.split('step_')[-1].split('.txt')[0]) for workflow_dir in step_wise_workflow_dir]
         last_idx = sorted(step_ids)[-1]
         step_idx = last_idx + 1
 
-    with open(f'step_wise_workflows/workflow_step_{step_idx}.txt','w') as fw:
-        fw.write('\n\n\n'.join(["## Concrete Examples"] + manual_workflows))
+    # TODO add the workflows to the task folder in results itself
+
+    with open(f'{exp_folder}/workflow_task_{args.tid}_step_{step_idx}.txt','w') as fw:
+        fw.write('\n\n\n'.join([prefix_worflow] + manual_workflows))
 
 
 if __name__ == "__main__":
@@ -226,6 +240,8 @@ if __name__ == "__main__":
                         choices=["gpt-3.5", "gpt-4", "gpt-4o",
                                  "meta-llama/Llama-3.1-70B-Instruct","meta-llama/Llama-3.1-8B-Instruct"])
     parser.add_argument("--auto", action="store_true", help="w/o manual workflow inspections.")
+    parser.add_argument("--tid", default=None, help="Task id when induction called")
+    parser.add_argument("--prefix_worflow_path", default=None, help="Path to the prefix workflow file.")
     args = parser.parse_args()
 
     main()
