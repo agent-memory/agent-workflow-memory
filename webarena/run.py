@@ -135,6 +135,9 @@ WARNING this demo agent will soon be moved elsewhere. Expect it to be removed at
         env_args.wait_for_user_message = True
         env_args.task_kwargs = {"start_url": args.start_url}
 
+    if 'gpt' in args.model_name and 'openai' not in args.model_name:
+        args.model_name = f"openai/{args.model_name}" # Add openai prefix
+
     exp_args = ExpArgs(
         env_args=env_args,
         agent_args=GenericAgentArgs(
