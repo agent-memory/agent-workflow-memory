@@ -5,3 +5,4 @@ webarena/step_wise_workflows/**
 webarena/workflow/**
 webarena/autoeval/log
 **/.DS_Store
+plots/**
