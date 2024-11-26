@@ -29,6 +29,8 @@ def success_rate(model_prefix, result_dir, plot_path=None):
 
     tasks_ran = os.listdir(result_dir)
     tasks_ran = sorted([int(t.split('webarena.')[-1]) for t in tasks_ran if '_' not in t])
+    # Template first order
+    # tasks_ran = [7, 16, 32, 36, 52, 57, 70, 74, 80, 84, 89, 97, 98, 137, 151, 218, 221, 236, 248, 253, 287, 356, 363, 369, 377, 382, 383, 757, 761, 763, 8, 9, 10, 17, 18, 19, 20, 33, 34, 35, 37, 38, 39, 40, 53, 54, 55, 56, 58, 59, 60, 61, 71, 72, 73, 75, 76, 81, 82, 83, 85, 86, 87, 88, 90, 91, 92, 93, 99, 100, 101, 138, 139, 140, 152, 153, 154, 155, 219, 220, 222, 223, 224, 237, 249, 250, 251, 252, 254, 255, 256, 257, 364, 365, 366, 367, 370, 371, 372, 373, 378, 379, 380, 381, 758, 759, 760, 762, 764, 765, 766, 767] 
 
     print(f"Result files:{len(tasks_ran)}")
 
@@ -105,17 +107,26 @@ def memory_efficiency(model, stepwise_workflow_path, plot_path=None):
     else:
         enc = AutoTokenizer.from_pretrained(model)
 
-    memory_tokens = [] 
+    memory_tokens = [0] 
 
     stepwise_workflows = os.listdir(stepwise_workflow_path)
     stepwise_workflows = sorted(stepwise_workflows, key=lambda x: int(x.split('_')[-1].split('.')[0]))  # Sort by the number itself
+    # Template first order
+    # tasks_ran = [7, 16, 32, 36, 52, 57, 70, 74, 80, 84, 89, 97, 98, 137, 151, 218, 221, 236, 248, 253, 287, 356, 363, 369, 377, 382, 383, 757, 761, 763, 8, 9, 10, 17, 18, 19, 20, 33, 34, 35, 37, 38, 39, 40, 53, 54, 55, 56, 58, 59, 60, 61, 71, 72, 73, 75, 76, 81, 82, 83, 85, 86, 87, 88, 90, 91, 92, 93, 99, 100, 101, 138, 139, 140, 152, 153, 154, 155, 219, 220, 222, 223, 224, 237, 249, 250, 251, 252, 254, 255, 256, 257, 364, 365, 366, 367, 370, 371, 372, 373, 378, 379, 380, 381, 758, 759, 760, 762, 764, 765, 766, 767] 
 
     for file in stepwise_workflows:
-        with open(f"{stepwise_workflow_path}/{file}") as f_in:
-            workflow_text = f_in.read()
-            # Calculate tokens with tokenizer huggingface / tiktoken 
-            tokens = len(enc.encode(workflow_text))
-            memory_tokens.append(tokens)
+    # stepid = 6
+    # for task_file in tasks_ran:
+        # file = f"workflow_task_{task_file}_step_{stepid}.txt"
+        if file not in stepwise_workflows:
+            memory_tokens.append(memory_tokens[-1])
+        else:
+            with open(f"{stepwise_workflow_path}/{file}") as f_in:
+                workflow_text = f_in.read()
+                # Calculate tokens with tokenizer huggingface / tiktoken 
+                tokens = len(enc.encode(workflow_text))
+                memory_tokens.append(tokens)
+            # stepid += 1
     
     print("Memory tokens")
     print(memory_tokens)
