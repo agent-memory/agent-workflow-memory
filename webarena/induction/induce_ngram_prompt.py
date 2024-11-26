@@ -8,7 +8,7 @@ import openai
 from openai import OpenAI
 from huggingface_hub import InferenceClient
 
-from induction.utils import extract_think_and_action, get_abstract_actions
+from utils import extract_think_and_action, get_abstract_actions
 
 def generate_ngrams(abstract_action_list, n):
     abstract_ngrams = []
@@ -100,6 +100,9 @@ def main():
     tid_folder = os.path.join(args.result_dir, f'webarena.{args.tid}') # This folder will exist
 
     step_wise_workflow_dir = os.listdir(exp_folder)
+    if "ngram_cache.json" in step_wise_workflow_dir:
+        step_wise_workflow_dir.remove("ngram_cache.json")
+
     if len(step_wise_workflow_dir) == 0:
         step_idx = 0
     else:
@@ -259,7 +262,6 @@ def main():
     # Write the ngram cache
     with open(ngram_cache_path, 'w') as fw:
         json.dump(ngram_cache, fw)
-        
     print(f"#{len(workflows)} result dirs for ngram based selection..")
 
     print('Workflows', workflows)
