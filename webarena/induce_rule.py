@@ -123,7 +123,7 @@ def main():
     if args.criteria == "gt":
         file_dirs = [
             os.path.join(res_dir, f) for res_dir in args.result_dir for f in os.listdir(res_dir) 
-            if json.load(
+            if os.path.exists(os.path.join(res_dir, f, "summary_info.json")) and json.load(
                 open(os.path.join(res_dir, f, "summary_info.json"))
             )["cum_reward"]
         ]
