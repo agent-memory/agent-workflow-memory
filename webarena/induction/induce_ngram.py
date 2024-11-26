@@ -3,7 +3,7 @@ import json
 import random
 import argparse
 
-from induction.utils import extract_think_and_action, get_abstract_actions
+from utils import extract_think_and_action, get_abstract_actions
 
 def generate_ngrams(abstract_action_list, n):
     abstract_ngrams = []

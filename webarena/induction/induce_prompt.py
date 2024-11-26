@@ -7,7 +7,7 @@ import openai
 from openai import OpenAI
 from huggingface_hub import InferenceClient
 
-from induction.utils import extract_think_and_action, get_abstract_actions
+from utils import extract_think_and_action, get_abstract_actions
 
 def format_trajectory(think_list: list[str], action_list: list[list[str]]) -> str:
     trajectory = []
