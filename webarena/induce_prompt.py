@@ -11,16 +11,34 @@ from huggingface_hub import InferenceClient
 # %% load examples
 def load_blocks(path: str) -> list[list[str]]:
     """Load blank-line separated blocks from the log file."""
+    # Rules/strings for different types of lines
+    thought_str = 'browsergym.experiments.loop - INFO -'
+    warning_str = 'root - WARNING'
+    http_str = 'httpx - INFO'
+    failure_str = 'root - INFO - Query failed. Retrying' # TODO also find failure for GPT-4
+    action_str = 'action:'
+
     blocks, block = [], []
+    
     for line in open(path, 'r'):
-        if line.strip() == "":
-            blocks.append(block)
+        if action_str in line or thought_str in line or failure_str in line:
+            if len(block) > 0 and failure_str not in block[0]: # If failure block do not add block
+                blocks.append(block)
             block = []
+            block.append(line.strip())
         else:
             if line.strip():
+                if warning_str in line or http_str in line:
+                    continue # Do not add warning or HTTP Info lines
                 block.append(line.strip())
+
+    blocks.append(block) # Add Last block
+
     if len(blocks) > 0 and 'Python version' in blocks[0][0]:
         blocks = blocks[1:] # remove conda env output
+    if len(blocks) > 0 and 'Running experiment' in blocks[0][0]:
+        blocks = blocks[1:] # remove initial prompt output
+
     assert len(blocks) % 2 == 0
     return blocks
 
@@ -57,8 +75,11 @@ def extract_think_and_action(path: str) -> tuple[list[str], list[str]]:
         action_list.append(actions)
         # think
         b = blocks[i-1]
-        idx = b[-1].index("browsergym.experiments.loop - INFO -")
-        think_list.append(b[-1][idx+36: ].strip())
+        # Handling multiple lines of thoughts and stripping off the prefix in first line
+        idx = b[0].index("browsergym.experiments.loop - INFO -")
+        b[0] = b[0][idx+36: ].strip()
+        thought = ' '.join(b).strip()
+        think_list.append(thought)
     
     assert len(think_list) == len(action_list)
     
