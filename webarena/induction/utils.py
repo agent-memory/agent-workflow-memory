@@ -73,42 +73,24 @@ def extract_think_and_action(path: str) -> tuple[list[str], list[str]]:
     # TODO: merge same actions
     return think_list, action_list
 
-
-def get_abstract_actions(action_list: list[list[str]]) -> str:
+def get_abstract_actions(action_list: list[list[str]]) -> list[str]:
     # Remove the arguments
     abstract = []
     for acts in action_list:
+        # curr_action = []
         for a in acts:
-            s = a.index("(")
-            e = a.index(',', s) if ',' in a[s:] else a.index(")", s) # Only uses the first argument of the input (eg: fill has 2)
-            action = a[:s]
-            if action != "send_msg_to_user":
-                arg = a[s+1: e]
-                abstract.append(f"{action}({arg})")
-            else:
-                abstract.append(f"{action}")
+            try:
+                s = a.index("(")
+                e = a.index(',', s) if ',' in a[s:] else a.index(")", s) # Only uses the first argument of the input (eg: fill has 2)
+                action = a[:s]
+                if action != "send_msg_to_user":
+                    arg = a[s+1: e]
+                    abstract.append(f"{action}({arg})")
+                else:
+                    abstract.append(f"{action}")
+            except:
+                print(f"Error in get_abstract_actions: {a}")
+                continue
+        # abstract.append("/".join(curr_action)) ### Earlier abstract.append
     # Need 1:1 corresp between abstract actions and overall actions
     return abstract
-
-
-# def get_abstract_actions(action_list: list[list[str]]) -> str:
-#     # Remove the arguments
-#     abstract = []
-#     for acts in action_list:
-#         curr_action = []
-#         for a in acts:
-#             try:
-#                 s = a.index("(")
-#                 e = a.index(',', s) if ',' in a[s:] else a.index(")", s) # Only uses the first argument of the input (eg: fill has 2)
-#                 action = a[:s]
-#                 if action != "send_msg_to_user":
-#                     arg = a[s+1: e]
-#                     curr_action.append(f"{action}({arg})")
-#                 else:
-#                     curr_action.append(f"{action}")
-#             except:
-#                 print(f"Error in get_abstract_actions: {a}")
-#                 continue
-#         abstract.append("/".join(curr_action)) ### Earlier abstract.append
-#     # Need 1:1 corresp between abstract actions and overall actions
-#     return abstract
