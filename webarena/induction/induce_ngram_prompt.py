@@ -216,20 +216,32 @@ def main():
 
     ## TODO: Load N-grams of each n, and check if the validation output is cached or not
     ## TODO: Right now checking only based on the format in 1 trajectory
+
+    # Ngram cache 
+    ngram_cache_path = f'{exp_folder}/ngram_cache.json'
+    if os.path.exists(ngram_cache_path):
+        ngram_cache = json.load(open(ngram_cache_path))
+    else:
+        ngram_cache = {}
+
     ctr = 0
     for key in ngram_groups.keys():
         if ngram_freq[key] >= induction_thr:
-            random_sample = random.sample(ngram_groups[key], 1) # should be less than induction_thr
-            examples_strs = []
-            for task in random_sample:
-                tid = task['task_id']
-                think_list = all_task_action_think[tid]['think_list']
-                action_list = all_task_action_think[tid]['action_list']
-                task_action_paired_str = format_trajectory(think_list, action_list)
-                examples_strs.append(task_action_paired_str)
+            if key in ngram_cache:
+                is_valid, inducted_workflow = ngram_cache[key]
+            else:
+                random_sample = random.sample(ngram_groups[key], 1) # should be less than induction_thr
+                examples_strs = []
+                for task in random_sample:
+                    tid = task['task_id']
+                    think_list = all_task_action_think[tid]['think_list']
+                    action_list = all_task_action_think[tid]['action_list']
+                    task_action_paired_str = format_trajectory(think_list, action_list)
+                    examples_strs.append(task_action_paired_str)
 
-            example_traj = "\n".join(examples_strs)
-            is_valid, inducted_workflow = llm_validate_subtrajectory(llm_client, key, examples_strs, args, verbose=False)
+                example_traj = "\n".join(examples_strs)
+                is_valid, inducted_workflow = llm_validate_subtrajectory(llm_client, key, examples_strs, args, verbose=False)
+                ngram_cache[key] = (is_valid, inducted_workflow)
 
             # print(is_valid)
             # print("***************")
@@ -244,6 +256,10 @@ def main():
 
     # return 
 
+    # Write the ngram cache
+    with open(ngram_cache_path, 'w') as fw:
+        json.dump(ngram_cache, fw)
+        
     print(f"#{len(workflows)} result dirs for ngram based selection..")
 
     print('Workflows', workflows)
