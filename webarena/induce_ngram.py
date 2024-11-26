@@ -6,16 +6,34 @@ import argparse
 
 def load_blocks(path: str) -> list[list[str]]:
     """Load blank-line separated blocks from the log file."""
+    # Rules/strings for different types of lines
+    thought_str = 'browsergym.experiments.loop - INFO -'
+    warning_str = 'WARNING'
+    http_str = 'httpx - INFO'
+    failure_str = 'root - INFO - Query failed. Retrying' # TODO also find failure for GPT-4
+    action_str = 'action:'
+
     blocks, block = [], []
+    
     for line in open(path, 'r'):
-        if line.strip() == "":
-            blocks.append(block)
+        if action_str in line or thought_str in line or failure_str in line:
+            if len(block) > 0 and failure_str not in block[0]: # If failure block do not add block
+                blocks.append(block)
             block = []
+            block.append(line.strip())
         else:
             if line.strip():
+                if warning_str in line or http_str in line:
+                    continue # Do not add warning or HTTP Info lines
                 block.append(line.strip())
+
+    blocks.append(block) # Add Last block
+
     if len(blocks) > 0 and 'Python version' in blocks[0][0]:
         blocks = blocks[1:] # remove conda env output
+    if len(blocks) > 0 and 'Running experiment' in blocks[0][0]:
+        blocks = blocks[1:] # remove initial prompt output
+
     assert len(blocks) % 2 == 0
     return blocks
 
@@ -50,8 +68,11 @@ def extract_think_and_action(path: str) -> tuple[list[str], list[str]]:
         action_list.append(actions)
         # think
         b = blocks[i-1]
-        idx = b[-1].index("browsergym.experiments.loop - INFO -")
-        think_list.append(b[-1][idx+36: ].strip())
+        # Handling multiple lines of thoughts and stripping off the prefix in first line
+        idx = b[0].index("browsergym.experiments.loop - INFO -")
+        b[0] = b[0][idx+36: ].strip()
+        thought = ' '.join(b).strip()
+        think_list.append(thought)
     
     assert len(think_list) == len(action_list)
     
@@ -64,14 +85,18 @@ def get_abstract_actions(action_list: list[list[str]]) -> str:
     for acts in action_list:
         curr_action = []
         for a in acts:
-            s = a.index("(")
-            e = a.index(',', s) if ',' in a[s:] else a.index(")", s) # Only uses the first argument of the input (eg: fill has 2)
-            action = a[:s]
-            if action != "send_msg_to_user":
-                arg = a[s+1: e]
-                curr_action.append(f"{action}({arg})")
-            else:
-                curr_action.append(f"{action}")
+            try:
+                s = a.index("(")
+                e = a.index(',', s) if ',' in a[s:] else a.index(")", s) # Only uses the first argument of the input (eg: fill has 2)
+                action = a[:s]
+                if action != "send_msg_to_user":
+                    arg = a[s+1: e]
+                    curr_action.append(f"{action}({arg})")
+                else:
+                    curr_action.append(f"{action}")
+            except:
+                print(f"Error in get_abstract_actions: {a}")
+                continue
         abstract.append("/".join(curr_action)) ### Earlier abstract.append
     # Need 1:1 corresp between abstract actions and overall actions
     return abstract
@@ -114,11 +139,13 @@ def remove_hallucinating_actions(action_list):
 
 def main():
     # collect result directories, e.g., ["results/webarena.0", ...]
+    prefix_worflow = "## Subtrajectory Examples"
+
     args.result_dir = args.result_dir.split()
     if args.criteria == "gt":
         file_dirs = [
             os.path.join(res_dir, f) for res_dir in args.result_dir for f in os.listdir(res_dir) 
-            if json.load(
+            if os.path.exists(os.path.join(os.path.join(res_dir, f, "summary_info.json"))) and json.load(
                 open(os.path.join(res_dir, f, "summary_info.json"))
             )["cum_reward"]
         ]
@@ -160,6 +187,8 @@ def main():
         except:
             think_list, action_list = [],[]
 
+        print(f"Here Task ID: {task_id}")
+        print(action_list)
         # add to template dict
         abstract_traj = get_abstract_actions(action_list)
 
@@ -290,29 +319,35 @@ def main():
     # print(f"#{len(manual_workflows)} result dirs after manual inspection..")
 
 
-
     if args.output_path is None:
         website = config["sites"][0]  # assumes all results are about the same website
         args.output_path = f"workflow/{website}.txt"
         print(f"[Warning] no output path specified, using '{args.output_path}' by default")
         
     with open(args.output_path, 'w') as fw:
-        fw.write('\n\n\n'.join(["## Subtrajectory Examples"] + workflows))
+        fw.write('\n\n\n'.join([prefix_worflow] + workflows))
 
     if not os.path.exists('step_wise_workflows'):
         os.makedirs('step_wise_workflows')
         print(f"Directory 'step_wise_workflows' created.")
 
-    step_wise_workflow_dir = os.listdir(f'step_wise_workflows')
+    exp_folder = f'step_wise_workflows/ngram_{args.model.replace("/", "_")}/'
+    if not os.path.exists(exp_folder):
+        os.makedirs(exp_folder)
+        print(f"Directory {exp_folder} created.")
+
+    step_wise_workflow_dir = os.listdir(exp_folder)
     if len(step_wise_workflow_dir) == 0:
         step_idx = 0
     else:
-        step_ids = [int(workflow_dir.split('workflow_step_')[-1].split('.txt')[0]) for workflow_dir in step_wise_workflow_dir]
+        step_ids = [int(workflow_dir.split('step_')[-1].split('.txt')[0]) for workflow_dir in step_wise_workflow_dir]
         last_idx = sorted(step_ids)[-1]
         step_idx = last_idx + 1
 
-    with open(f'step_wise_workflows/workflow_step_{step_idx}.txt','w') as fw:
-        fw.write('\n\n\n'.join(["## Subtrajectory Examples"] + workflows))
+    # TODO add the workflows to the task folder in results itself
+
+    with open(f'{exp_folder}/workflow_task_{args.tid}_step_{step_idx}.txt','w') as fw:
+        fw.write('\n\n\n'.join([prefix_worflow] + workflows))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -325,8 +360,9 @@ if __name__ == "__main__":
                         help="'gt': only use examples with gold reward, 'autoeval': use examples with autoeval reward.")
     parser.add_argument("--model", type=str, default="gpt-4o",
                         choices=["gpt-3.5", "gpt-4", "gpt-4o","gpt-4-turbo",
-                                 "meta-llama/Meta-Llama-3.1-70B-Instruct","meta-llama/Meta-Llama-3.1-8B-Instruct"])
+                                 "meta-llama/Llama-3.1-70B-Instruct","meta-llama/Llama-3.1-8B-Instruct"])
     parser.add_argument("--auto", action="store_true", help="w/o manual workflow inspections.")
+    parser.add_argument("--tid", default=None, help="Task id when induction called")
     args = parser.parse_args()
 
     main()
