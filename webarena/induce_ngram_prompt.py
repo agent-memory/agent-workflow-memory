@@ -11,16 +11,34 @@ from huggingface_hub import InferenceClient
 
 def load_blocks(path: str) -> list[list[str]]:
     """Load blank-line separated blocks from the log file."""
+    # Rules/strings for different types of lines
+    thought_str = 'browsergym.experiments.loop - INFO -'
+    warning_str = 'WARNING'
+    http_str = 'httpx - INFO'
+    failure_str = 'root - INFO - Query failed. Retrying' # TODO also find failure for GPT-4
+    action_str = 'action:'
+
     blocks, block = [], []
+    
     for line in open(path, 'r'):
-        if line.strip() == "":
-            blocks.append(block)
+        if action_str in line or thought_str in line or failure_str in line:
+            if len(block) > 0 and failure_str not in block[0]: # If failure block do not add block
+                blocks.append(block)
             block = []
+            block.append(line.strip())
         else:
             if line.strip():
+                if warning_str in line or http_str in line:
+                    continue # Do not add warning or HTTP Info lines
                 block.append(line.strip())
+
+    blocks.append(block) # Add Last block
+
     if len(blocks) > 0 and 'Python version' in blocks[0][0]:
         blocks = blocks[1:] # remove conda env output
+    if len(blocks) > 0 and 'Running experiment' in blocks[0][0]:
+        blocks = blocks[1:] # remove initial prompt output
+
     assert len(blocks) % 2 == 0
     return blocks
 
@@ -55,8 +73,11 @@ def extract_think_and_action(path: str) -> tuple[list[str], list[str]]:
         action_list.append(actions)
         # think
         b = blocks[i-1]
-        idx = b[-1].index("browsergym.experiments.loop - INFO -")
-        think_list.append(b[-1][idx+36: ].strip())
+        # Handling multiple lines of thoughts and stripping off the prefix in first line
+        idx = b[0].index("browsergym.experiments.loop - INFO -")
+        b[0] = b[0][idx+36: ].strip()
+        thought = ' '.join(b).strip()
+        think_list.append(thought)
     
     assert len(think_list) == len(action_list)
     
@@ -103,10 +124,13 @@ def get_n_gram_action_sequences(abstract_action_list, n_range =[2,3,4,5]):
 def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: bool = False):
     """Call gpt model to validate if sub-trajectory is correct and provide explanation."""
 
-    steps = "/n".join(subtraj.split(",")) # Abstract Sub-trajectory that we want to validate
-    query_format = f"Sub-trajectory query sequence:\n{steps}\n\nActual trajectory:\n{examples}"
+    steps = "\n".join([step.strip() for step in subtraj.split(",")]) # Abstract Sub-trajectory that we want to validate
+    query_format = f"Sub-trajectory query sequence:\n{steps}"
+    
+    for example in examples:
+        query_format += f"\n\nActual trajectory:\n{example}"
 
-    prompt = '\n\n'.join([args.INSTRUCTION, args.ONE_SHOT])
+    prompt = '\n\n'.join([args.INSTRUCTION, args.ONE_SHOT, query_format])
 
     if verbose: print("Prompt:\n", prompt, '\n\n')
 
@@ -131,7 +155,10 @@ def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: boo
     # Response parts: 0 - Validity 1- Explanation 2- NL Query 3- Example subtraj
     validity_match = re.search(r"<VALIDITY>\s*(\w+)", response)
     validity = validity_match.group(1) if validity_match else None
-    is_valid = True if "True" in validity else False
+    if validity is not None and "True" in validity:
+        is_valid = True
+    else:
+        is_valid = False
     if is_valid:
         query_match = re.search(r"<NATURAL_LANG_QUERY>\s*(.*?)<SUBTRAJECTORY_EXAMPLE_CALL>", response, re.DOTALL)
         nl_query = query_match.group(1).strip() if query_match else None
@@ -139,14 +166,43 @@ def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: boo
         subtrajectory_examples = response.split("<SUBTRAJECTORY_EXAMPLE_CALL>")[-1]
         subtrajectory_examples = "\n".join([x.strip() for x in subtrajectory_examples.split("\n")])
         
-        inducted_workflow = f"Workflow: {nl_query}\n\nSubtrajectory Example:{subtrajectory_examples}\n"
+        inducted_workflow = f"Workflow: {nl_query}\n\nExample:{subtrajectory_examples}\n"
     if verbose: 
         print("=====================") 
         print(response)
-    return validity, inducted_workflow
+    # return validity, inducted_workflow
+    return is_valid, inducted_workflow
 
 def main():
     # collect result directories, e.g., ["results/webarena.0", ...] 
+    prefix_worflow = "## Subtrajectory Examples"
+    
+    # ======  Read the workflow file and write it out (As before induction is the input workflow) ===== 
+    if not os.path.exists('step_wise_workflows'):
+        os.makedirs('step_wise_workflows')
+        print(f"Directory 'step_wise_workflows' created.")
+
+    exp_folder = f'step_wise_workflows/ngram_prompt_{args.model.replace("/", "_")}/'
+    if not os.path.exists(exp_folder):
+        os.makedirs(exp_folder)
+        print(f"Directory {exp_folder} created.")
+    
+    tid_folder = os.path.join(args.result_dir, f'webarena.{args.tid}') # This folder will exist
+
+    step_wise_workflow_dir = os.listdir(exp_folder)
+    if len(step_wise_workflow_dir) == 0:
+        step_idx = 0
+    else:
+        step_ids = [int(workflow_dir.split('step_')[-1].split('.txt')[0]) for workflow_dir in step_wise_workflow_dir]
+        last_idx = sorted(step_ids)[-1]
+        step_idx = last_idx + 1
+
+    # Read the workflow file
+    prev_workflows = open(args.output_path, 'r').read()
+    with open(f'{tid_folder}/workflow_task_{args.tid}_step_{step_idx}.txt','w') as fw:
+        fw.write(prev_workflows)
+    # ================
+
     args.result_dir = args.result_dir.split()
     if args.criteria == "gt":
         file_dirs = [
@@ -201,14 +257,19 @@ def main():
                  "abstract_traj": abstract_traj, "action_ngrams": action_ngrams_dict}
         all_task_action_think[task_id] = wdict
 
-    # test_n = 3
-    if len(file_dirs) < 60:
-        test_n = 2
+    # ngram and threshold schedule
+    if len(file_dirs) < 40:
+         test_n = 2
+         induction_thr = 2
+    elif len(file_dirs) < 80:
+         test_n = 3
+         induction_thr = 3
     else:
-        test_n = 3
+         test_n = 4
+         induction_thr = 5
+
     print("N in n-gram:{}".format(test_n))
 
-    test_n = 2
     ngram_groups = {}
     # Count overlapping ngrams - for each ngram store the task id and the corresponding action sequence
     for tid in all_task_action_think:
@@ -235,12 +296,6 @@ def main():
         return '\n\n'.join(trajectory)
 
     workflows = []
-    # 2-gram followed by 3-gram with increasing thr
-    if len(file_dirs) < 60:
-        induction_thr = 10
-    else:
-        induction_thr = 20
-
     print("Induction threshold:{}".format(induction_thr))
 
     if "gpt" in args.model:
@@ -264,20 +319,24 @@ def main():
                 examples_strs.append(task_action_paired_str)
 
             example_traj = "\n".join(examples_strs)
-            is_valid, inducted_workflow = llm_validate_subtrajectory(llm_client, key, examples_strs, args, verbose=True)
+            is_valid, inducted_workflow = llm_validate_subtrajectory(llm_client, key, examples_strs, args, verbose=False)
 
-            print(is_valid)
-            print("***************")
-            print(inducted_workflow)
+            # print(is_valid)
+            # print("***************")
+            # print(inducted_workflow)
 
             # workflow_formatted = get_workflow(ngram_format, examples_strs)
-            # workflows.append(workflow_formatted)
-            break
-            # ctr += 1
+            if is_valid:
+                # import pdb; pdb.set_trace()
+                workflows.append(inducted_workflow)
+            # break
+            ctr += 1
 
-    return 
+    # return 
 
     print(f"#{len(workflows)} result dirs for ngram based selection..")
+
+    print('Workflows', workflows)
 
     if args.output_path is None:
         website = config["sites"][0]  # assumes all results are about the same website
@@ -285,22 +344,11 @@ def main():
         print(f"[Warning] no output path specified, using '{args.output_path}' by default")
         
     with open(args.output_path, 'w') as fw:
-        fw.write('\n\n\n'.join(["## Subtrajectory Examples"] + workflows))
+        fw.write('\n\n\n'.join([prefix_worflow] + workflows))
 
-    if not os.path.exists('step_wise_workflows'):
-        os.makedirs('step_wise_workflows')
-        print(f"Directory 'step_wise_workflows' created.")
-
-    step_wise_workflow_dir = os.listdir(f'step_wise_workflows')
-    if len(step_wise_workflow_dir) == 0:
-        step_idx = 0
-    else:
-        step_ids = [int(workflow_dir.split('workflow_step_')[-1].split('.txt')[0]) for workflow_dir in step_wise_workflow_dir]
-        last_idx = sorted(step_ids)[-1]
-        step_idx = last_idx + 1
-
-    with open(f'step_wise_workflows/workflow_step_{step_idx}.txt','w') as fw:
-        fw.write('\n\n\n'.join(["## Subtrajectory Examples"] + workflows))
+    # Write in stepwise workflow folder
+    with open(f'{exp_folder}/workflow_task_{args.tid}_step_{step_idx}.txt','w') as fw:
+        fw.write('\n\n\n'.join([prefix_worflow] + workflows))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -313,8 +361,9 @@ if __name__ == "__main__":
                         help="'gt': only use examples with gold reward, 'autoeval': use examples with autoeval reward.")
     parser.add_argument("--model", type=str, default="gpt-4o",
                         choices=["gpt-3.5", "gpt-4", "gpt-4o","gpt-4-turbo",
-                                 "meta-llama/Meta-Llama-3.1-70B-Instruct","meta-llama/Meta-Llama-3.1-8B-Instruct"])
+                                 "meta-llama/Llama-3.1-70B-Instruct","meta-llama/Llama-3.1-8B-Instruct"])
     parser.add_argument("--auto", action="store_true", help="w/o manual workflow inspections.")
+    parser.add_argument("--tid", default=None, help="Task id when induction called")
     args = parser.parse_args()
 
     args.INSTRUCTION = open("prompt/instruction_subtraj.txt", 'r').read()
