@@ -46,6 +46,8 @@ def remove_invalid_steps(actions: list[str]) -> list[str]:
             arg = a[a.index("(")+1: a.index(",")].strip()
             if type(eval(arg)) == str:
                 valid_actions.append(a)
+        elif "retry" in a.lower() or "raise" in a.lower() or "traceback" in a.lower(): # Invalid actions
+            continue
         else:
             valid_actions.append(a)
     return valid_actions
