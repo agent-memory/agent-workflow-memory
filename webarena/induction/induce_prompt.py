@@ -39,7 +39,7 @@ def llm_generate(llm_client, examples: list[dict], args, verbose: bool = False):
     response = llm_client.chat.completions.create(
         model=args.model,
         messages=[{"role": "user", "content": prompt}],
-        temperature=1.0,
+        temperature=1.0 if "gpt" in args.model else 0.6,
         max_tokens=2048,
     )
 

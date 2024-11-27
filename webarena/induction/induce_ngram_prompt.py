@@ -57,19 +57,12 @@ def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: boo
     if verbose: print("Prompt:\n", prompt, '\n\n')
 
     print(f"Model called for induction: {args.model}")
-    if "gpt" in args.model:
-        response = llm_client.chat.completions.create(
-            model=args.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=1.0,
-            max_tokens=1024,
-        )
-    else:
-        response = llm_client.chat_completion(
-                messages=[{"role": "user", "content": prompt}],
-                temperature=1.0,
-                max_tokens=2048,
-        )
+    response = llm_client.chat.completions.create(
+        model=args.model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=1.0 if "gpt" in args.model else 0.6,
+        max_tokens=1024,
+    )
 
     response = response.choices[0].message.content
     output_tokens = get_number_tokens(response)
