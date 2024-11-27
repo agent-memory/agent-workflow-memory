@@ -66,7 +66,7 @@ class Evaluator:
             "thoughts": extract_content(msg_str, "Thoughts:"),
             "status": extract_content(msg_str, "Status:").replace('"', ""),
         }
-        return msg_dict, msg_str, prompt
+        return msg_dict, msg_str, prompt, msg_str
 
     def eval_vision(self, info, client):
         assert client == "gpt-4v" or client == "gpt-4o"
