@@ -6,6 +6,7 @@ from PIL import Image
 from typing import Union, Optional
 from openai import OpenAI, ChatCompletion
 from huggingface_hub import InferenceClient
+import time
 
 class LM_Client:
     def __init__(self, model_name: str = "gpt-3.5-turbo") -> None:
@@ -73,11 +74,22 @@ class GPT4V_Client:
                     "image_url": {"url": f"data:image/jpeg;base64,{jpg_base64_str}"},},
                 ],
         }]
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=messages,
-            max_tokens=self.max_tokens,
-        )
+        n_retry = 3
+        tries = 0
+        while tries < n_retry:
+            try:
+                print(f"Eval try:{tries}")
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=messages,
+                    max_tokens=self.max_tokens,
+                )
+                break
+            except Exception as e:
+                print(f"An error occurred in GPTVClient: {e} \n Retrying in 60s ...")
+                time.sleep(60)
+                tries += 1
+                
         return response.choices[0].message.content, response
 
 

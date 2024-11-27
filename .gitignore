@@ -1,5 +1,6 @@
 **/__pycache__/**
 **/results*/**
+all_results/**
 webarena/config_files/**
 webarena/step_wise_workflows/**
 webarena/workflow/**
