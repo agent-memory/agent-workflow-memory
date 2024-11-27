@@ -8,6 +8,7 @@ import openai
 from openai import OpenAI
 from huggingface_hub import InferenceClient
 import tiktoken
+from transformers import AutoTokenizer
 
 from utils import extract_think_and_action, get_abstract_actions
 
@@ -33,7 +34,11 @@ def get_n_gram_action_sequences(abstract_action_list, n_range =[2,3,4,5]):
     return n_gram_dict
 
 def get_number_tokens(prompt_text, model_name="gpt-4o"): 
-    encoding = tiktoken.encoding_for_model(model_name)
+    if "gpt" in model_name:
+        encoding = tiktoken.encoding_for_model(model_name)
+    else:
+        encoding = AutoTokenizer.from_pretrained(model_name)
+
     tokens = encoding.encode(prompt_text) 
     return len(tokens) 
 

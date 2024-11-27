@@ -5,6 +5,7 @@ import traceback
 from autoeval.evaluator import Evaluator
 from autoeval.clients import CLIENT_DICT
 import tiktoken
+from transformers import AutoTokenizer
 
 def load_blocks(path: str) -> list[list[str]]:
     """Load blank-line separated blocks from the log file."""
@@ -91,7 +92,10 @@ def extract_response(action: str) -> str:
     return action[s: e]
 
 def get_number_tokens(prompt_text, model_name="gpt-4o"): 
-    encoding = tiktoken.encoding_for_model(model_name)
+    if "gpt" in model_name:
+        encoding = tiktoken.encoding_for_model(model_name)
+    else:
+        encoding = AutoTokenizer.from_pretrained(model_name)
     tokens = encoding.encode(prompt_text) 
     return len(tokens) 
 
