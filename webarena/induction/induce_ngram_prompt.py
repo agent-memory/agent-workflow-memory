@@ -269,7 +269,7 @@ def main():
 
     # Write the ngram cache
     with open(ngram_cache_path, 'w') as fw:
-        json.dump(ngram_cache, fw)
+        json.dump(ngram_cache, fw, indent=4)
     print(f"#{len(workflows)} result dirs for ngram based selection..")
 
     print('Workflows', workflows)
