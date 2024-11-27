@@ -7,98 +7,10 @@ import re
 import openai
 from openai import OpenAI
 from huggingface_hub import InferenceClient
+import tiktoken
+from transformers import AutoTokenizer
 
-
-def load_blocks(path: str) -> list[list[str]]:
-    """Load blank-line separated blocks from the log file."""
-    # Rules/strings for different types of lines
-    thought_str = 'browsergym.experiments.loop - INFO -'
-    warning_str = 'WARNING'
-    http_str = 'httpx - INFO'
-    failure_str = 'root - INFO - Query failed. Retrying' # TODO also find failure for GPT-4
-    action_str = 'action:'
-
-    blocks, block = [], []
-    
-    for line in open(path, 'r'):
-        if action_str in line or thought_str in line or failure_str in line:
-            if len(block) > 0 and failure_str not in block[0]: # If failure block do not add block
-                blocks.append(block)
-            block = []
-            block.append(line.strip())
-        else:
-            if line.strip():
-                if warning_str in line or http_str in line:
-                    continue # Do not add warning or HTTP Info lines
-                block.append(line.strip())
-
-    blocks.append(block) # Add Last block
-
-    if len(blocks) > 0 and 'Python version' in blocks[0][0]:
-        blocks = blocks[1:] # remove conda env output
-    if len(blocks) > 0 and 'Running experiment' in blocks[0][0]:
-        blocks = blocks[1:] # remove initial prompt output
-
-    assert len(blocks) % 2 == 0
-    return blocks
-
-def remove_invalid_steps(actions: list[str]) -> list[str]:
-    """Remove invalid steps from the action sequence."""
-    valid_actions = []
-    for a in actions:
-        if "click(" in a:
-            arg = a[a.index("(")+1: a.index(")")]
-            try:
-                if type(eval(arg)) == str and type(eval(arg[1:-1])) == int:
-                    valid_actions.append(a)
-            except:
-                continue
-        elif "fill(" in a:
-            arg = a[a.index("(")+1: a.index(",")].strip()
-            if type(eval(arg)) == str:
-                valid_actions.append(a)
-        else:
-            valid_actions.append(a)
-    return valid_actions
-
-def extract_think_and_action(path: str) -> tuple[list[str], list[str]]:
-    """Extract the task trajectory from the log file."""
-    blocks = load_blocks(path)
-    think_list, action_list = [], []
-    for i in range(1, len(blocks), 2):
-        # action
-        b = blocks[i]
-        actions = remove_invalid_steps(b[1:])
-        if len(actions) == 0: continue
-        action_list.append(actions)
-        # think
-        b = blocks[i-1]
-        # Handling multiple lines of thoughts and stripping off the prefix in first line
-        idx = b[0].index("browsergym.experiments.loop - INFO -")
-        b[0] = b[0][idx+36: ].strip()
-        thought = ' '.join(b).strip()
-        think_list.append(thought)
-    
-    assert len(think_list) == len(action_list)
-    
-    # TODO: merge same actions
-    return think_list, action_list
-
-def get_abstract_actions(action_list: list[list[str]]) -> str:
-    # Remove the arguments
-    abstract = []
-    for acts in action_list:
-        for a in acts:
-            s = a.index("(")
-            e = a.index(',', s) if ',' in a[s:] else a.index(")", s) # Only uses the first argument of the input (eg: fill has 2)
-            action = a[:s]
-            if action != "send_msg_to_user":
-                arg = a[s+1: e]
-                abstract.append(f"{action}({arg})")
-            else:
-                abstract.append(f"{action}")
-    # Need 1:1 corresp between abstract actions and overall actions
-    return abstract
+from utils import extract_think_and_action, get_abstract_actions
 
 def generate_ngrams(abstract_action_list, n):
     abstract_ngrams = []
@@ -121,6 +33,15 @@ def get_n_gram_action_sequences(abstract_action_list, n_range =[2,3,4,5]):
         n_gram_dict[n] = (abs_ngram, ngram_idxs)
     return n_gram_dict
 
+def get_number_tokens(prompt_text, model_name="gpt-4o"): 
+    if "gpt" in model_name:
+        encoding = tiktoken.encoding_for_model(model_name)
+    else:
+        encoding = AutoTokenizer.from_pretrained(model_name)
+
+    tokens = encoding.encode(prompt_text) 
+    return len(tokens) 
+
 def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: bool = False):
     """Call gpt model to validate if sub-trajectory is correct and provide explanation."""
 
@@ -131,25 +52,20 @@ def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: boo
         query_format += f"\n\nActual trajectory:\n{example}"
 
     prompt = '\n\n'.join([args.INSTRUCTION, args.ONE_SHOT, query_format])
+    prompt_tokens = get_number_tokens(prompt)
 
     if verbose: print("Prompt:\n", prompt, '\n\n')
 
     print(f"Model called for induction: {args.model}")
-    if "gpt" in args.model:
-        response = llm_client.chat.completions.create(
-            model=args.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=1.0,
-            max_tokens=1024,
-        )
-    else:
-        response = llm_client.chat_completion(
-                messages=[{"role": "user", "content": prompt}],
-                temperature=1.0,
-                max_tokens=2048,
-        )
+    response = llm_client.chat.completions.create(
+        model=args.model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=1.0 if "gpt" in args.model else 0.6,
+        max_tokens=1024,
+    )
 
     response = response.choices[0].message.content
+    output_tokens = get_number_tokens(response)
     
     inducted_workflow = None
     # Response parts: 0 - Validity 1- Explanation 2- NL Query 3- Example subtraj
@@ -170,8 +86,10 @@ def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: boo
     if verbose: 
         print("=====================") 
         print(response)
+
+    total_tokens = (prompt_tokens, output_tokens)
     # return validity, inducted_workflow
-    return is_valid, inducted_workflow
+    return is_valid, inducted_workflow, total_tokens
 
 def main():
     # collect result directories, e.g., ["results/webarena.0", ...] 
@@ -190,6 +108,9 @@ def main():
     tid_folder = os.path.join(args.result_dir, f'webarena.{args.tid}') # This folder will exist
 
     step_wise_workflow_dir = os.listdir(exp_folder)
+    if "ngram_cache.json" in step_wise_workflow_dir:
+        step_wise_workflow_dir.remove("ngram_cache.json")
+
     if len(step_wise_workflow_dir) == 0:
         step_idx = 0
     else:
@@ -306,20 +227,32 @@ def main():
 
     ## TODO: Load N-grams of each n, and check if the validation output is cached or not
     ## TODO: Right now checking only based on the format in 1 trajectory
+
+    # Ngram cache 
+    ngram_cache_path = f'{exp_folder}/ngram_cache.json'
+    if os.path.exists(ngram_cache_path):
+        ngram_cache = json.load(open(ngram_cache_path))
+    else:
+        ngram_cache = {}
+
     ctr = 0
     for key in ngram_groups.keys():
         if ngram_freq[key] >= induction_thr:
-            random_sample = random.sample(ngram_groups[key], 1) # should be less than induction_thr
-            examples_strs = []
-            for task in random_sample:
-                tid = task['task_id']
-                think_list = all_task_action_think[tid]['think_list']
-                action_list = all_task_action_think[tid]['action_list']
-                task_action_paired_str = format_trajectory(think_list, action_list)
-                examples_strs.append(task_action_paired_str)
+            if key in ngram_cache:
+                is_valid, inducted_workflow, total_tokens = ngram_cache[key]
+            else:
+                random_sample = random.sample(ngram_groups[key], 1) # should be less than induction_thr
+                examples_strs = []
+                for task in random_sample:
+                    tid = task['task_id']
+                    think_list = all_task_action_think[tid]['think_list']
+                    action_list = all_task_action_think[tid]['action_list']
+                    task_action_paired_str = format_trajectory(think_list, action_list)
+                    examples_strs.append(task_action_paired_str)
 
-            example_traj = "\n".join(examples_strs)
-            is_valid, inducted_workflow = llm_validate_subtrajectory(llm_client, key, examples_strs, args, verbose=False)
+                example_traj = "\n".join(examples_strs)
+                is_valid, inducted_workflow, total_tokens = llm_validate_subtrajectory(llm_client, key, examples_strs, args, verbose=False)
+                ngram_cache[key] = (is_valid, inducted_workflow, total_tokens)
 
             # print(is_valid)
             # print("***************")
@@ -334,6 +267,9 @@ def main():
 
     # return 
 
+    # Write the ngram cache
+    with open(ngram_cache_path, 'w') as fw:
+        json.dump(ngram_cache, fw, indent=4)
     print(f"#{len(workflows)} result dirs for ngram based selection..")
 
     print('Workflows', workflows)

@@ -12,9 +12,9 @@ class Evaluator:
         assert (client in self.lm_clients), \
             f"Client {client} not found in {self.lm_clients.keys()}"
         if version == "text":
-            eval_info, eval_str, prompt = self.eval_text(info, client)
+            eval_info, eval_str, prompt, full_output = self.eval_text(info, client)
         elif version == "vision":
-            eval_info, eval_str, prompt = self.eval_vision(info, client)
+            eval_info, eval_str, prompt, full_output = self.eval_vision(info, client)
         else:
             raise NotImplementedError(f"Version {version} not implemented")
 
@@ -50,7 +50,7 @@ class Evaluator:
                 if prompt:
                     md_file.write("## Main Prompt\n\n")
                     md_file.write(f"```md\n{prompt}\n```\n")
-        return eval_info, prompt
+        return eval_info, prompt, full_output
 
     def eval_text(self, info, client):
         response = info["response"] if info["response"] else "None"
@@ -71,6 +71,7 @@ class Evaluator:
     def eval_vision(self, info, client):
         assert client == "gpt-4v" or client == "gpt-4o"
         action_history = ""
+        print("Calling vision evaluation")
         for idx, act in enumerate(info["actions"]):
             action_history += f"{idx+1}: {act}\n"
         prompt, sys_msg = build_vision_eval_prompt(
@@ -87,4 +88,4 @@ class Evaluator:
             "thoughts": extract_content(msg_str, "Thoughts:"),
             "status": extract_content(msg_str, "Status:").replace('"', ""),
         }
-        return msg_dict, msg_str, prompt
+        return msg_dict, msg_str, prompt, msg_str

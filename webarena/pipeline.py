@@ -80,7 +80,7 @@ def main():
 
         # step 3: update workflow
         command = [
-            "python", induction_path,
+            "python", f"induction/{induction_path}",
             "--result_dir", "results",
             "--output_path", f"workflow/{args.website}.txt",
             "--model", f"{args.model_name}",

@@ -4,7 +4,8 @@ import argparse
 import traceback
 from autoeval.evaluator import Evaluator
 from autoeval.clients import CLIENT_DICT
-
+import tiktoken
+from transformers import AutoTokenizer
 
 def load_blocks(path: str) -> list[list[str]]:
     """Load blank-line separated blocks from the log file."""
@@ -90,6 +91,13 @@ def extract_response(action: str) -> str:
     s, e = action.index("(")+1, action.index(")")
     return action[s: e]
 
+def get_number_tokens(prompt_text, model_name="gpt-4o"): 
+    if "gpt" in model_name:
+        encoding = tiktoken.encoding_for_model(model_name)
+    else:
+        encoding = AutoTokenizer.from_pretrained(model_name)
+    tokens = encoding.encode(prompt_text) 
+    return len(tokens) 
 
 def process_sample(
     idx: str, traj_info: dict, log_save_path,
@@ -98,7 +106,8 @@ def process_sample(
     clients = {model: CLIENT_DICT[model](model_name=model)}
     evaluator = Evaluator(clients, log_save_path=log_save_path + "/trajs")
     try:
-        out, _ = evaluator(traj_info, model, eval_version)
+        out, prompt, full_output = evaluator(traj_info, model, eval_version)
+        prompt_tokens, output_tokens = get_number_tokens(prompt), get_number_tokens(full_output)
         eval_result = None
         if out["status"].lower() == "success": eval_result = True
         else: eval_result = False
@@ -108,6 +117,8 @@ def process_sample(
                 "rm": eval_result,
                 "thoughts": out["thoughts"], 
                 "uid": traj_info["traj_name"],
+                "prompt_tokens": prompt_tokens,
+                "output_tokens": output_tokens,
         }]
     except Exception as e:
         print(f"Error on {idx}, {e}")
@@ -118,6 +129,8 @@ def process_sample(
             "rm": None,
             "thoughts": None, 
             "uid": traj_info["traj_name"],
+            "prompt_tokens": -1,
+            "output_tokens": -1
         }]
 
 
