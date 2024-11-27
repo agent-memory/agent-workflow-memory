@@ -7,6 +7,7 @@ import re
 import openai
 from openai import OpenAI
 from huggingface_hub import InferenceClient
+import tiktoken
 
 from utils import extract_think_and_action, get_abstract_actions
 
@@ -31,6 +32,11 @@ def get_n_gram_action_sequences(abstract_action_list, n_range =[2,3,4,5]):
         n_gram_dict[n] = (abs_ngram, ngram_idxs)
     return n_gram_dict
 
+def get_number_tokens(prompt_text, model_name="gpt-4o"): 
+    encoding = tiktoken.encoding_for_model(model_name)
+    tokens = encoding.encode(prompt_text) 
+    return len(tokens) 
+
 def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: bool = False):
     """Call gpt model to validate if sub-trajectory is correct and provide explanation."""
 
@@ -41,6 +47,7 @@ def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: boo
         query_format += f"\n\nActual trajectory:\n{example}"
 
     prompt = '\n\n'.join([args.INSTRUCTION, args.ONE_SHOT, query_format])
+    prompt_tokens = get_number_tokens(prompt)
 
     if verbose: print("Prompt:\n", prompt, '\n\n')
 
@@ -60,6 +67,7 @@ def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: boo
         )
 
     response = response.choices[0].message.content
+    output_tokens = get_number_tokens(response)
     
     inducted_workflow = None
     # Response parts: 0 - Validity 1- Explanation 2- NL Query 3- Example subtraj
@@ -80,8 +88,10 @@ def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: boo
     if verbose: 
         print("=====================") 
         print(response)
+
+    total_tokens = (prompt_tokens, output_tokens)
     # return validity, inducted_workflow
-    return is_valid, inducted_workflow
+    return is_valid, inducted_workflow, total_tokens
 
 def main():
     # collect result directories, e.g., ["results/webarena.0", ...] 
@@ -231,7 +241,7 @@ def main():
     for key in ngram_groups.keys():
         if ngram_freq[key] >= induction_thr:
             if key in ngram_cache:
-                is_valid, inducted_workflow = ngram_cache[key]
+                is_valid, inducted_workflow, total_tokens = ngram_cache[key]
             else:
                 random_sample = random.sample(ngram_groups[key], 1) # should be less than induction_thr
                 examples_strs = []
@@ -243,8 +253,8 @@ def main():
                     examples_strs.append(task_action_paired_str)
 
                 example_traj = "\n".join(examples_strs)
-                is_valid, inducted_workflow = llm_validate_subtrajectory(llm_client, key, examples_strs, args, verbose=False)
-                ngram_cache[key] = (is_valid, inducted_workflow)
+                is_valid, inducted_workflow, total_tokens = llm_validate_subtrajectory(llm_client, key, examples_strs, args, verbose=False)
+                ngram_cache[key] = (is_valid, inducted_workflow, total_tokens)
 
             # print(is_valid)
             # print("***************")
