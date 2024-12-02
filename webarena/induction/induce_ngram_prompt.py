@@ -209,8 +209,8 @@ def main():
         ngram_freq[key] = len(task_ids)
         print(f"Ngram:{key}, freq:{ngram_freq[key]}")
 
-    def format_trajectory(think_list: list[str], action_list: list[list[str]]) -> str:
-        trajectory = []
+    def format_trajectory(think_list: list[str], action_list: list[list[str]], query: str) -> str:
+        trajectory = [f'Task Description: {query}']
         for t, a in zip(think_list, action_list):
             acts = '\n'.join(a)
             trajectory.append(f"<think>\n{t}\n</think>\n<action>\n{acts}\n</action>")
@@ -247,7 +247,8 @@ def main():
                     tid = task['task_id']
                     think_list = all_task_action_think[tid]['think_list']
                     action_list = all_task_action_think[tid]['action_list']
-                    task_action_paired_str = format_trajectory(think_list, action_list)
+                    query = all_task_action_think[tid]['query']
+                    task_action_paired_str = format_trajectory(think_list, action_list, query)
                     examples_strs.append(task_action_paired_str)
 
                 example_traj = "\n".join(examples_strs)

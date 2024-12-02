@@ -3,7 +3,7 @@ fill('145')
 click('147')
 
 Actual trajectory:
-Query: Tell me the closest cafe(s) to CMU Hunt library
+Task Description: Tell me the closest cafe(s) to CMU Hunt library
 <think>
 To find the closest cafes to CMU Hunt Library, I need to search for "cafes near CMU Hunt Library" on OpenStreetMap. I'll enter this query in the search box and click "Go."
 </think>
