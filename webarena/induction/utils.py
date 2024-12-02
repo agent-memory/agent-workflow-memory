@@ -5,19 +5,21 @@ def load_blocks(path: str) -> list[list[str]]:
     warning_str = 'WARNING'
     http_str = 'httpx - INFO'
     failure_str = 'root - INFO - Query failed. Retrying' # TODO also find failure for GPT-4
+    content_failure_str = "Error('Execution context was destroyed, most likely because of a navigation')"
+    recovery_fix = "browsergym.core.env - INFO - The active page and / or page history has changed during task.validate()"
     action_str = 'action:'
 
     blocks, block = [], []
     
     for line in open(path, 'r'):
-        if action_str in line or thought_str in line or failure_str in line:
+        if action_str in line or thought_str in line or failure_str in line or recovery_fix in line:
             if len(block) > 0 and failure_str not in block[0]: # If failure block do not add block
                 blocks.append(block)
             block = []
             block.append(line.strip())
         else:
             if line.strip():
-                if warning_str in line or http_str in line:
+                if warning_str in line or http_str in line or content_failure_str in line:
                     continue # Do not add warning or HTTP Info lines
                 block.append(line.strip())
 
@@ -27,6 +29,8 @@ def load_blocks(path: str) -> list[list[str]]:
         blocks = blocks[1:] # remove conda env output
     if len(blocks) > 0 and 'Running experiment' in blocks[0][0]:
         blocks = blocks[1:] # remove initial prompt output
+    if len(blocks) > 0 and recovery_fix in blocks[-1][0]:
+        blocks = blocks[:-1] # remove final extra fix
 
     assert len(blocks) % 2 == 0
     return blocks
@@ -46,8 +50,6 @@ def remove_invalid_steps(actions: list[str]) -> list[str]:
             arg = a[a.index("(")+1: a.index(",")].strip()
             if type(eval(arg)) == str:
                 valid_actions.append(a)
-        elif "retry" in a.lower() or "raise" in a.lower() or "traceback" in a.lower(): # Invalid actions
-            continue
         else:
             valid_actions.append(a)
     return valid_actions
@@ -96,3 +98,6 @@ def get_abstract_actions(action_list: list[list[str]]) -> list[str]:
         # abstract.append("/".join(curr_action)) ### Earlier abstract.append
     # Need 1:1 corresp between abstract actions and overall actions
     return abstract
+
+if __name__ == "__main__":
+    load_blocks('results/webarena.573/experiment.log')
