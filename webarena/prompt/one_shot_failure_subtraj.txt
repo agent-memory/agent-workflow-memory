@@ -2,9 +2,8 @@ Sub-trajectory query sequence:
 fill('169')
 click('171')
 
-Task Description: Find the walking distance to the closest CVS from Carnegie Mellon University
-
 Actual trajectory:
+Task Description: Find the walking distance to the closest CVS from Carnegie Mellon University
 <think>
 To measure the walking distance between Carnegie Mellon University and the closest CVS, I need to use the "Find directions between two points" feature on OpenStreetMap. I'll start by clicking on the link to access the directions feature.
 </think>
@@ -68,11 +67,11 @@ click('171')
 
 OUTPUT:
 <VALIDITY> True
-<EXPLANATION> 
+<VALIDITY_EXPLANATION> 
 It does not depend on a previous action and is a complete action in itself
-<CORRECTNESS> False
-<EXPLANATION> 
-The repeated sub-trajectory in the trajectory does not change the state of the webpage nor does it make progress towards the goal.
+<SUCCESS> False
+<SUCCESS_EXPLANATION> 
+The repeated sub-trajectory in the trajectory does not change the state of the webpage (stuck selecting mode of transport) nor does it make progress towards the goal of finding walking distance
 <NATURAL_LANG_QUERY> To change the mode of transport from "Car" to "Foot". However, this intention is not acheived by the sub-trajectory. To acheive it correctly, avoid these redundant steps and replan accordingly.
 <SUBTRAJECTORY_EXAMPLE_CALL>
 <think>

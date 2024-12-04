@@ -68,28 +68,46 @@ def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: boo
     output_tokens = get_number_tokens(response)
     
     inducted_workflow = None
-    # Response parts: 0 - Validity 1- Explanation 2- NL Query 3- Example subtraj
+
     validity_match = re.search(r"<VALIDITY>\s*(\w+)", response)
     validity = validity_match.group(1) if validity_match else None
     if validity is not None and "True" in validity:
         is_valid = True
     else:
         is_valid = False
-    if is_valid:
+
+    successful = None # Even if invalid
+    if is_valid: 
+        # Get the NL Query / feedback
         query_match = re.search(r"<NATURAL_LANG_QUERY>\s*(.*?)<SUBTRAJECTORY_EXAMPLE_CALL>", response, re.DOTALL)
         nl_query = query_match.group(1).strip() if query_match else None
         
         subtrajectory_examples = response.split("<SUBTRAJECTORY_EXAMPLE_CALL>")[-1]
         subtrajectory_examples = "\n".join([x.strip() for x in subtrajectory_examples.split("\n")])
-        
-        inducted_workflow = f"Workflow: {nl_query}\n\nExample:{subtrajectory_examples}\n"
+
+            # Format if no failure adding
+            # Response parts: 0 - Validity 1- Explanation 2- NL Query 3- Example subtraj
+        if args.add_failures:
+            # Response parts: 0 - Validity 1- Explanation 2 - Success 3- Explanation 4- NL Query / Feedback 3- Example subtraj
+            success_match = re.search(r"<SUCCESS>\s*(\w+)", response)
+            success = success_match.group(1) if success_match else None
+            if success is not None and "True" in success:
+                successful = True
+                inducted_workflow = f"Successful Workflow: {nl_query}\n\nExample:{subtrajectory_examples}\n"
+            else:
+                successful = False
+                inducted_workflow = f"Failed Workflow: {nl_query}\n\nExample:{subtrajectory_examples}\n"
+            
+        else: # Normal
+            inducted_workflow = f"Workflow: {nl_query}\n\nExample:{subtrajectory_examples}\n"
+
     if verbose: 
         print("=====================") 
         print(response)
 
     total_tokens = (prompt_tokens, output_tokens)
     # return validity, inducted_workflow
-    return is_valid, inducted_workflow, total_tokens
+    return is_valid, successful, inducted_workflow, total_tokens
 
 def main():
     # collect result directories, e.g., ["results/webarena.0", ...] 
@@ -181,7 +199,7 @@ def main():
     # ngram and threshold schedule
     if len(file_dirs) < 40:
          test_n = 2
-         induction_thr = 2
+         induction_thr = 1
     elif len(file_dirs) < 80:
          test_n = 3
          induction_thr = 3
@@ -239,7 +257,7 @@ def main():
     for key in ngram_groups.keys():
         if ngram_freq[key] >= induction_thr:
             if key in ngram_cache:
-                is_valid, inducted_workflow, total_tokens = ngram_cache[key]
+                is_valid, success, inducted_workflow, total_tokens = ngram_cache[key]
             else:
                 random_sample = random.sample(ngram_groups[key], 1) # should be less than induction_thr
                 examples_strs = []
@@ -252,8 +270,8 @@ def main():
                     examples_strs.append(task_action_paired_str)
 
                 example_traj = "\n".join(examples_strs)
-                is_valid, inducted_workflow, total_tokens = llm_validate_subtrajectory(llm_client, key, examples_strs, args, verbose=False)
-                ngram_cache[key] = (is_valid, inducted_workflow, total_tokens)
+                is_valid, success, inducted_workflow, total_tokens = llm_validate_subtrajectory(llm_client, key, examples_strs, args, verbose=True)
+                ngram_cache[key] = (is_valid, success, inducted_workflow, total_tokens)
 
             # print(is_valid)
             # print("***************")
@@ -262,7 +280,7 @@ def main():
             # workflow_formatted = get_workflow(ngram_format, examples_strs)
             if is_valid:
                 # import pdb; pdb.set_trace()
-                workflows.append(inducted_workflow)
+                workflows.append(inducted_workflow) # Currently mixing up successful and failure workflows together
             # break
             ctr += 1
 
@@ -300,10 +318,15 @@ if __name__ == "__main__":
                         choices=["gpt-3.5", "gpt-4", "gpt-4o","gpt-4-turbo",
                                  "meta-llama/Llama-3.1-70B-Instruct","meta-llama/Llama-3.1-8B-Instruct"])
     parser.add_argument("--auto", action="store_true", help="w/o manual workflow inspections.")
+    parser.add_argument("--add_failures", default=False, action="store_true", help="Add Failure ngrams to memory")
     parser.add_argument("--tid", default=None, help="Task id when induction called")
     args = parser.parse_args()
 
-    args.INSTRUCTION = open("prompt/instruction_subtraj.txt", 'r').read()
-    args.ONE_SHOT = open("prompt/one_shot_subtraj.txt", 'r').read()
+    if not args.add_failures:
+        args.INSTRUCTION = open("prompt/instruction_subtraj.txt", 'r').read()
+        args.ONE_SHOT = open("prompt/one_shot_subtraj.txt", 'r').read()
+    else:
+        args.INSTRUCTION = open("prompt/instruction_subtraj_failure.txt", 'r').read()
+        args.ONE_SHOT = open("prompt/one_shot_failure_subtraj.txt", 'r').read()
 
     main()

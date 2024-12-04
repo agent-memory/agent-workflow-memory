@@ -88,6 +88,8 @@ def main():
         ]
         if args.auto and args.induce_strategy in ['rule', 'ngram', 'ngram_prompt']:
             command.append("--auto")
+        if args.add_failures and args.induce_strategy == "ngram_prompt": # Failure only supported for ngram prompt
+            command.append("--add_failures")
         if args.prefix_workflow_path:
             command.extend(["--prefix_workflow_path", args.prefix_workflow_path])
 
@@ -109,6 +111,7 @@ if __name__ == "__main__":
     parser.add_argument("--auto", action="store_true", default=False)
     parser.add_argument("--headless", action="store_true", default=False)
     parser.add_argument("--template_first", default=False, action="store_true", help="Rearrange tasks to perform 1 task of each template before other tasks")
+    parser.add_argument("--add_failures", default=False, action="store_true", help="Add failures to the workflow")
     args = parser.parse_args()
 
     main()
