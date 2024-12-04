@@ -199,7 +199,7 @@ def main():
     # ngram and threshold schedule
     if len(file_dirs) < 40:
          test_n = 2
-         induction_thr = 1
+         induction_thr = 2
     elif len(file_dirs) < 80:
          test_n = 3
          induction_thr = 3
@@ -270,7 +270,7 @@ def main():
                     examples_strs.append(task_action_paired_str)
 
                 example_traj = "\n".join(examples_strs)
-                is_valid, success, inducted_workflow, total_tokens = llm_validate_subtrajectory(llm_client, key, examples_strs, args, verbose=True)
+                is_valid, success, inducted_workflow, total_tokens = llm_validate_subtrajectory(llm_client, key, examples_strs, args, verbose=False)
                 ngram_cache[key] = (is_valid, success, inducted_workflow, total_tokens)
 
             # print(is_valid)
