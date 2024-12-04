@@ -5,3 +5,5 @@ It is a valid and complete set of actions in itself, is not a continuation or re
 
 Condition for a successful sub-trajectory:
 It contributes meaningfully to the trajectory to attain the final goal and leads to a change in state of the web environment, i.e. the action ends up displaying a new page, sending some input etc. If there is a change, it will be reflected in the model's next think step as it observes the updated change in the web environment. 
+
+You're given an example below that is valid but a failure. Give the output for the second set of sub-trajectory and corresponding actual trajectory, while keeping the same output format/tags as the example.

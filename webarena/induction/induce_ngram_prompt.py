@@ -49,7 +49,7 @@ def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: boo
     query_format = f"Sub-trajectory query sequence:\n{steps}"
     
     for example in examples:
-        query_format += f"\n\nActual trajectory:\n{example}"
+        query_format += f"\n\nActual trajectory:\n{example}\n\nOUTPUT:\n"
 
     prompt = '\n\n'.join([args.INSTRUCTION, args.ONE_SHOT, query_format])
     prompt_tokens = get_number_tokens(prompt)
@@ -60,7 +60,7 @@ def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: boo
     response = llm_client.chat.completions.create(
         model=args.model,
         messages=[{"role": "user", "content": prompt}],
-        temperature=1.0 if "gpt" in args.model else 0.6,
+        temperature=1.0 if "gpt" in args.model else 0.3,
         max_tokens=1024,
     )
 
