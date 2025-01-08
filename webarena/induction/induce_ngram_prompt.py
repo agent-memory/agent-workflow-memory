@@ -93,10 +93,10 @@ def llm_validate_subtrajectory(llm_client, subtraj, examples, args, verbose: boo
             success = success_match.group(1) if success_match else None
             if success is not None and "True" in success:
                 successful = True
-                inducted_workflow = f"Successful Workflow: {nl_query}\n\nExample:{subtrajectory_examples}\n"
+                inducted_workflow = f"Successful Workflow: {nl_query}\n\nExample of the useful workflow:{subtrajectory_examples}\n"
             else:
                 successful = False
-                inducted_workflow = f"Failed Workflow: {nl_query}\n\nExample:{subtrajectory_examples}\n"
+                inducted_workflow = f"Failure Pattern: {nl_query}\n\nDemonstration of the failure subtrajectory which must be avoided:{subtrajectory_examples}\n"
             
         else: # Normal
             inducted_workflow = f"Workflow: {nl_query}\n\nExample:{subtrajectory_examples}\n"
@@ -293,13 +293,23 @@ def main():
     
     # Populate workflows from cache
     workflows = []
+    failures = [] # Only used if add failures
     for key in ngram_cache.keys():
-        is_valid, inducted_workflow, total_tokens, ngram_n = ngram_cache[key]
+        is_valid, success, inducted_workflow, total_tokens, ngram_n = ngram_cache[key] # Add success
         if (args.cumulative_ngram == False and ngram_n == test_n) or (args.cumulative_ngram): # if cumulative add all n-grams
             if is_valid:
-                workflows.append(inducted_workflow)
+                if args.add_failures:
+                    if success: # Add success and failures to separate lists
+                        workflows.append(inducted_workflow)
+                    else:
+                        failures.append(inducted_workflow)
+                else:
+                    workflows.append(inducted_workflow)
 
     print(f"#{len(workflows)} result dirs for ngram based selection..")
+
+    if args.add_failures:
+        workflows.extend(['\n##Common Failure Patterns or Subtrajectories to avoid\n'] + failures) # Add it all in at the end
 
     print('Workflows', workflows)
 
@@ -329,7 +339,7 @@ if __name__ == "__main__":
                                  "meta-llama/Llama-3.1-70B-Instruct","meta-llama/Llama-3.1-8B-Instruct"])
     parser.add_argument("--auto", action="store_true", help="w/o manual workflow inspections.")
     parser.add_argument("--add_failures", default=False, action="store_true", help="Add Failure ngrams to memory")
-    parser.add_argument("--cumulative_ngram", action="store_true", help="add all n-grams upto this point")
+    parser.add_argument("--cumulative_ngram", default=False, action="store_true", help="add all n-grams upto this point")
     parser.add_argument("--tid", default=None, help="Task id when induction called")
     args = parser.parse_args()
 
