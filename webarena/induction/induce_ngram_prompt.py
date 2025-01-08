@@ -257,7 +257,7 @@ def main():
     for key in ngram_groups.keys():
         if ngram_freq[key] >= induction_thr:
             if key in ngram_cache:
-                is_valid, success, inducted_workflow, total_tokens = ngram_cache[key]
+                is_valid, success, inducted_workflow, total_tokens, ngram_n = ngram_cache[key]
             else:
                 random_sample = random.sample(ngram_groups[key], 1) # should be less than induction_thr
                 examples_strs = []
@@ -271,16 +271,17 @@ def main():
 
                 example_traj = "\n".join(examples_strs)
                 is_valid, success, inducted_workflow, total_tokens = llm_validate_subtrajectory(llm_client, key, examples_strs, args, verbose=False)
-                ngram_cache[key] = (is_valid, success, inducted_workflow, total_tokens)
+                ngram_n = test_n
+                ngram_cache[key] = (is_valid, success, inducted_workflow, total_tokens, ngram_n)
 
             # print(is_valid)
             # print("***************")
             # print(inducted_workflow)
 
             # workflow_formatted = get_workflow(ngram_format, examples_strs)
-            if is_valid:
-                # import pdb; pdb.set_trace()
-                workflows.append(inducted_workflow) # Currently mixing up successful and failure workflows together
+            # if is_valid:
+            #     # import pdb; pdb.set_trace()
+            #     workflows.append(inducted_workflow)
             # break
             ctr += 1
 
@@ -288,7 +289,16 @@ def main():
 
     # Write the ngram cache
     with open(ngram_cache_path, 'w') as fw:
-        json.dump(ngram_cache, fw, indent=4)
+        json.dump(ngram_cache, fw)
+    
+    # Populate workflows from cache
+    workflows = []
+    for key in ngram_cache.keys():
+        is_valid, inducted_workflow, total_tokens, ngram_n = ngram_cache[key]
+        if (args.cumulative_ngram == False and ngram_n == test_n) or (args.cumulative_ngram): # if cumulative add all n-grams
+            if is_valid:
+                workflows.append(inducted_workflow)
+
     print(f"#{len(workflows)} result dirs for ngram based selection..")
 
     print('Workflows', workflows)
@@ -319,6 +329,7 @@ if __name__ == "__main__":
                                  "meta-llama/Llama-3.1-70B-Instruct","meta-llama/Llama-3.1-8B-Instruct"])
     parser.add_argument("--auto", action="store_true", help="w/o manual workflow inspections.")
     parser.add_argument("--add_failures", default=False, action="store_true", help="Add Failure ngrams to memory")
+    parser.add_argument("--cumulative_ngram", action="store_true", help="add all n-grams upto this point")
     parser.add_argument("--tid", default=None, help="Task id when induction called")
     args = parser.parse_args()
 
