@@ -67,34 +67,36 @@ def main():
             "--workflow_path", f"workflow/{args.website}.txt",
             "--model_name", f"{args.model_name}",
             "--headless", "True" if args.headless else "False",
+            "--temperature", f"{args.agent_temperature}"
         ])
         process.wait()
 
-        # step 2: run evaluation
-        process = Popen([
-            "python", "-m", "autoeval.evaluate_trajectory",
-            "--result_dir", f"results/webarena.{tid}",
-            "--model", f"{args.model_name}"
-        ])
-        process.wait()
+        if args.induce_strategy != "no_induce":
+            # step 2: run evaluation
+            process = Popen([
+                "python", "-m", "autoeval.evaluate_trajectory",
+                "--result_dir", f"results/webarena.{tid}",
+                "--model", f"{args.model_name}"
+            ])
+            process.wait()
 
-        # step 3: update workflow
-        command = [
-            "python", f"induction/{induction_path}",
-            "--result_dir", "results",
-            "--output_path", f"workflow/{args.website}.txt",
-            "--model", f"{args.model_name}",
-            "--tid", f"{tid}",
-        ]
-        if args.auto and args.induce_strategy in ['rule', 'ngram', 'ngram_prompt']:
-            command.append("--auto")
-        if args.add_failures and args.induce_strategy == "ngram_prompt": # Failure only supported for ngram prompt
-            command.append("--add_failures")
-        if args.prefix_workflow_path:
-            command.extend(["--prefix_workflow_path", args.prefix_workflow_path])
+            # step 3: update workflow
+            command = [
+                "python", f"induction/{induction_path}",
+                "--result_dir", "results",
+                "--output_path", f"workflow/{args.website}.txt",
+                "--model", f"{args.model_name}",
+                "--tid", f"{tid}",
+            ]
+            if args.auto and args.induce_strategy in ['rule', 'ngram', 'ngram_prompt']:
+                command.append("--auto")
+            if args.add_failures and args.induce_strategy == "ngram_prompt": # Failure only supported for ngram prompt
+                command.append("--add_failures")
+            if args.prefix_workflow_path:
+                command.extend(["--prefix_workflow_path", args.prefix_workflow_path])
 
-        process = Popen(command)
-        process.wait()
+            process = Popen(command)
+            process.wait()
 
         print(f"Completed tid:{tid}, time taken:{time.time() - start_time}", flush=True)
 
@@ -106,12 +108,13 @@ if __name__ == "__main__":
     parser.add_argument("--model_name", type=str, default="gpt-4o")
     parser.add_argument("--start_index", type=int, default=0)
     parser.add_argument("--end_index", type=int, default=None)
-    parser.add_argument("--induce_strategy", type=str, default="rule", choices=["rule", "neural", "ngram", "ngram_prompt"])
+    parser.add_argument("--induce_strategy", type=str, default="rule", choices=["rule", "neural", "ngram", "ngram_prompt", "no_induce"])
     parser.add_argument("--prefix_workflow_path", type=str, default=None)
     parser.add_argument("--auto", action="store_true", default=False)
     parser.add_argument("--headless", action="store_true", default=False)
     parser.add_argument("--template_first", default=False, action="store_true", help="Rearrange tasks to perform 1 task of each template before other tasks")
     parser.add_argument("--add_failures", default=False, action="store_true", help="Add failures to the workflow")
+    parser.add_argument("--agent_temperature", type=float, default=0.1, help="Temperature for the LLM Agent")
     args = parser.parse_args()
 
     main()

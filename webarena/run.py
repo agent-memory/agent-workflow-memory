@@ -108,6 +108,12 @@ def parse_args():
         default=None,
         help="Path to the memory file to load for the agent.",
     )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.1,
+        help="Temperature used for the LLM Agent (Action taking)"
+    )
 
     return parser.parse_args()
 
@@ -144,10 +150,11 @@ WARNING this demo agent will soon be moved elsewhere. Expect it to be removed at
             chat_model_args=ChatModelArgs(
                 model_name=args.model_name,
                 model_url=args.model_name,
+                temperature=args.temperature, 
                 max_total_tokens=128_000,  # "Maximum total tokens for the chat model."
                 max_input_tokens=126_000,  # "Maximum tokens for the input to the chat model."
                 max_new_tokens=2_000,  # "Maximum total tokens for the chat model."
-                eai_token = os.environ.get('HF_TOKEN')
+                eai_token = os.environ.get('HF_TOKEN'),
             ),
             flags=Flags(
                 use_html=args.use_html,
