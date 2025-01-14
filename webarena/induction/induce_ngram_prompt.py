@@ -308,8 +308,8 @@ def main():
 
     print(f"#{len(workflows)} result dirs for ngram based selection..")
 
-    if args.add_failures:
-        workflows.extend(['\n##Common Failure Patterns or Subtrajectories to avoid\n'] + failures) # Add it all in at the end
+    if args.add_failures and len(failures) > 0:
+        workflows.extend(['\n## Common Failure Patterns or Subtrajectories to avoid\n'] + failures) # Add it all in at the end
 
     print('Workflows', workflows)
 
