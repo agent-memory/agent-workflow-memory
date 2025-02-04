@@ -336,7 +336,7 @@ if __name__ == "__main__":
                         help="'gt': only use examples with gold reward, 'autoeval': use examples with autoeval reward.")
     parser.add_argument("--model", type=str, default="gpt-4o",
                         choices=["gpt-3.5", "gpt-4", "gpt-4o","gpt-4-turbo",
-                                 "meta-llama/Llama-3.1-70B-Instruct","meta-llama/Llama-3.1-8B-Instruct"])
+                                 "meta-llama/Llama-3.1-70B-Instruct","meta-llama/Llama-3.1-8B-Instruct", "meta-llama/Llama-3.1-8B-Instruct", "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B", "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"])
     parser.add_argument("--auto", action="store_true", help="w/o manual workflow inspections.")
     parser.add_argument("--add_failures", default=False, action="store_true", help="Add Failure ngrams to memory")
     parser.add_argument("--cumulative_ngram", default=False, action="store_true", help="add all n-grams upto this point")

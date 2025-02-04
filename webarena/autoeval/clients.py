@@ -98,5 +98,7 @@ CLIENT_DICT = {
     "gpt-4": LM_Client,
     "gpt-4o": GPT4V_Client,
     "meta-llama/Llama-3.1-70B-Instruct": LM_Client,
-    "meta-llama/Llama-3.1-8B-Instruct": LM_Client
+    "meta-llama/Llama-3.1-8B-Instruct": LM_Client,
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B": LM_Client,
+    "deepseek-ai/DeepSeek-R1-Distill-Llama-70B": LM_Client
 }
