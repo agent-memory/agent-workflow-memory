@@ -6,11 +6,14 @@ import datetime
 
 from utils import extract_think_and_action, get_abstract_actions
 
-def format_trajectory(think_list: list[str], action_list: list[list[str]]) -> str:
+def format_trajectory(think_list: list[str], action_list: list[list[str]], model_name: None) -> str:
     trajectory = []
     for t, a in zip(think_list, action_list):
         acts = '\n'.join(a)
-        trajectory.append(f"<think>\n{t}\n</think>\n<action>\n{acts}\n</action>")
+        if model_name is not None and 'DeepSeek'in model_name:
+            trajectory.append(f"<action>\n{acts}\n</action>")
+        else:
+            trajectory.append(f"<think>\n{t}\n</think>\n<action>\n{acts}\n</action>")
     return '\n\n'.join(trajectory)
 
 def get_abstract_trajectory(action_list: list[list[str]]) -> str:
@@ -102,11 +105,11 @@ def main():
     print(f"#{len(selected_workflows)} result dirs after trajectory dedup..")
 
     # manual inspection
-    def get_workflow(d: dict) -> str:
-        return f"Query: {d['query']}\n" + format_trajectory(d['think_list'], d['action_list'])
+    def get_workflow(d: dict, model: str) -> str:
+        return f"Query: {d['query']}\n" + format_trajectory(d['think_list'], d['action_list'], model)
     manual_workflows = []
     for w in selected_workflows:
-        w = get_workflow(w)
+        w = get_workflow(w, args.model)
         if args.auto: 
             to_add = 'y'
         else:

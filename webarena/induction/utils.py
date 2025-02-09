@@ -15,6 +15,8 @@ def load_blocks(path: str) -> list[list[str]]:
         if action_str in line or thought_str in line or failure_str in line or recovery_fix in line:
             if len(block) > 0 and failure_str not in block[0]: # If failure block do not add block
                 blocks.append(block)
+            if action_str in line and thought_str in line: # to fix deepseek bug # TODO: Handle in parsing logic of browsergym 
+                blocks.append(['']) # empty thought str
             block = []
             block.append(line.strip())
         else:
@@ -67,8 +69,9 @@ def extract_think_and_action(path: str) -> tuple[list[str], list[str]]:
         # think
         b = blocks[i-1]
         # Handling multiple lines of thoughts and stripping off the prefix in first line
-        idx = b[0].index("browsergym.experiments.loop - INFO -")
-        b[0] = b[0][idx+36: ].strip()
+        if "browsergym.experiments.loop - INFO -" in b[0]:
+            idx = b[0].index("browsergym.experiments.loop - INFO -")
+            b[0] = b[0][idx+36: ].strip()
         thought = ' '.join(b).strip()
         think_list.append(thought)
     
